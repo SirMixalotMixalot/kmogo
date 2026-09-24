@@ -2,13 +2,14 @@
 
 University of Waterloo SE390 capstone: **Intelligent Cloud Database Autotuner**.
 MP1 focuses on PostgreSQL index optimization. This slice establishes a
-reproducible workload Ã¢â€ â€™ baseline Ã¢â€ â€™ query plan Ã¢â€ â€™ manual index Ã¢â€ â€™ comparison loop.
+reproducible workload -> baseline -> query plan -> manual index -> comparison loop.
 The AI/search strategy remains undecided.
 
-**Validation status:** the runner and three index-experiment cycles passed on native
-Windows PostgreSQL 16.15. Compose configuration validates, but container startup,
-build and volume recreation remain unverified because this sandbox cannot access
-the Docker engine. See the experiment evidence for the exact checks and limits.
+**Validation status:** Docker startup/health, runner build, all five tests,
+three index-experiment cycles and database volume recreation passed on
+PostgreSQL 16.15. Recreated data and baseline indexes matched. See the
+[Docker validation record](experiments/docker-validation-001.md) for image
+identities, measurements and logs. Separate native Windows results are also retained.
 
 ## Prerequisites and setup
 
@@ -160,7 +161,8 @@ sandbox may be denied access even while Docker Desktop is running.
 ## Measurement limits and next work
 
 See [measurement notes](docs/measurement.md) and
-[manual experiment evidence](experiments/manual-index-001.md).
+[native experiment evidence](experiments/manual-index-001.md) and
+[Docker experiment evidence](experiments/docker-validation-001.md).
 Warm caches, fixed query order, local-machine activity and a small synthetic
 dataset limit conclusions. Repetitions show variation; they do not establish
 statistical significance. Read-only tests omit index write/maintenance costs.

@@ -5,7 +5,9 @@
 Three independent baseline/index cycles completed on **native Windows
 PostgreSQL 16.15**, with five measured repetitions per configuration and one
 untimed warmup pass per cycle. This is a temporary synthetic smoke test,
-**not TPC-H**, and is not evidence of working Docker startup.
+**not TPC-H**. Subsequent Docker lifecycle validation also passed; its
+[separate record](docker-validation-001.md) contains container measurements.
+The timings below remain native Windows measurements.
 
 The pooled mean workload time changed from **163.577 ms to 100.333 ms**
 (**38.66% faster**). PostgreSQL used the manual index for the selective lookup
@@ -16,7 +18,7 @@ portability, or a general index recommendation.
 
 ## Environment and data
 
-- Measurements: 2026-09-24 02:57â€“02:59 UTC.
+- Measurements: 2026-09-24 02:57-02:59 UTC.
 - Source revision: f4e0af39df9fa8b1afe5d9f91027f93603adea4c.
 - Server: PostgreSQL 16.15, compiled by Visual C++ build 1944, 64-bit.
 - Client: Python 3.13.11, psycopg 3.2.9, Windows 11 build 26200;
@@ -58,15 +60,15 @@ indexed median 90.326 ms. Individual samples and distributions are retained.
 These means pool 15 samples per configuration. EXPLAIN timings are from a
 separate execution after each plain-query sample.
 
-| Query | Before client ms | After client ms | Change | Before â†’ after EXPLAIN execution ms |
+| Query | Before client ms | After client ms | Change | Before -> after EXPLAIN execution ms |
 | --- | ---: | ---: | ---: | ---: |
-| 01_customer_orders | 35.344 | 1.005 | -97.16% | 34.408 â†’ 0.138 |
-| 02_customer_totals | 37.430 | 4.333 | -88.42% | 68.354 â†’ 2.933 |
-| 03_status_summary | 90.802 | 94.995 | 4.62% | 100.317 â†’ 104.908 |
+| 01_customer_orders | 35.344 | 1.005 | -97.16% | 34.408 -> 0.138 |
+| 02_customer_totals | 37.430 | 4.333 | -88.42% | 68.354 -> 2.933 |
+| 03_status_summary | 90.802 | 94.995 | 4.62% | 100.317 -> 104.908 |
 
-- 01_customer_orders: sequential scan â†’ bitmap index/heap scan using
+- 01_customer_orders: sequential scan -> bitmap index/heap scan using
   orders_customer_date_idx.
-- 02_customer_totals: orders sequential scan â†’ bitmap index/heap scans using
+- 02_customer_totals: orders sequential scan -> bitmap index/heap scans using
   orders_customer_date_idx; customers_pkey is also used.
 - 03_status_summary: sequential scan in both states; candidate index unused.
   Changes were -7.18%, +4.35%, and +15.54% by cycle. The pooled 4.62% regression
@@ -123,38 +125,21 @@ All four full experiment invocations succeeded. The precommit validation is
 excluded from the reported three-cycle evidence. Compose configuration validation
 and Python compilation passed.
 
-**Docker execution remains unverified.** The first
-docker compose up -d --wait postgres attempt failed because the docker_engine
-named pipe was absent. A later retry encountered access denied on the engine
-pipe from the sandbox. Thus no Docker image build, healthy container, container
-client connection, or volume destroy/recreate is claimed. These native
-measurements must not be presented as container measurements.
+## Subsequent Docker validation and next task
 
-## Next acceptance check
+Docker validation completed on 2026-09-24 from the user's terminal via
+`pwsh -NoProfile -File scripts/validate-docker.ps1`. Container build/startup,
+health, client access, all five tests, three fresh experiment cycles and volume
+destroy/recreation passed. The newly initialized volume reproduced the same
+data fingerprint and baseline indexes without an additional schema reset.
 
-On Windows, the same checks plus three full experiment cycles and saved runtime
-metadata are automated by scripts/validate-docker.ps1. Run it from a normal
-terminal with Docker engine access:
+See the [Docker validation record](docker-validation-001.md) for the image
+digest, command log, runtime metadata and separate container timings. The
+sandbox's Docker pipe restriction was resolved for validation by running the
+committed script from the user's normal terminal.
 
-~~~powershell
-pwsh -NoProfile -File scripts/validate-docker.ps1
-~~~
-
-For manual execution, the component commands are:
-
-~~~sh
-docker compose up -d --wait postgres
-docker compose build runner
-docker compose run --rm -e KMOGO_INTEGRATION_TEST=1 --entrypoint python runner -m unittest discover -s tests -v
-docker compose run --rm runner experiment --repeat 5 --warmup 1 --output-dir results/docker-cycle-1
-docker compose down -v
-docker compose up -d --wait postgres
-~~~
-
-Verify recreated row counts/fingerprint and repeat three cycles. Record the
-container image digest and actual server version. This is the highest-value
-outstanding acceptance check for KMO-17. Afterwards, add PostgreSQL-compatible
-TPC-H at scale factor 0.1, as recommended by KMO-24.
+The next benchmark task is PostgreSQL-compatible TPC-H at scale factor 0.1,
+as recommended by KMO-24.
 
 Warm caches, metadata scans, fixed query order, EXPLAIN instrumentation, ANALYZE
 sampling, local Windows activity and the small synthetic dataset limit the
