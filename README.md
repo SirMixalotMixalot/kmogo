@@ -2,8 +2,13 @@
 
 University of Waterloo SE390 capstone: **Intelligent Cloud Database Autotuner**.
 MP1 focuses on PostgreSQL index optimization. This slice establishes a
-reproducible workload → baseline → query plan → manual index → comparison loop.
+reproducible workload â†’ baseline â†’ query plan â†’ manual index â†’ comparison loop.
 The AI/search strategy remains undecided.
+
+**Validation status:** the runner and three index-experiment cycles passed on native
+Windows PostgreSQL 16.15. Compose configuration validates, but container startup,
+build and volume recreation remain unverified because this sandbox cannot access
+the Docker engine. See the experiment evidence for the exact checks and limits.
 
 ## Prerequisites and setup
 
