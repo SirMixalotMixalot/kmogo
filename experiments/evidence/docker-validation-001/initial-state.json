@@ -1,0 +1,70 @@
+{
+  "postgres_version": "PostgreSQL 16.15 (Debian 16.15-1.pgdg12+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 12.2.0-14+deb12u1) 12.2.0, 64-bit",
+  "server_version_num": 160015,
+  "connection": {
+    "host": "postgres",
+    "port": 5432,
+    "dbname": "kmogo_dev",
+    "user": "kmogo"
+  },
+  "dataset": {
+    "registration": [
+      [
+        "synthetic-orders-v1",
+        "10000 customers; 200000 orders; deterministic arithmetic generation; no RNG"
+      ]
+    ],
+    "tables": {
+      "customers": {
+        "rows": 10000,
+        "content_md5": "568bf5755eb5f9c75b0788fd5c0ea1ee"
+      },
+      "orders": {
+        "rows": 200000,
+        "content_md5": "5fe44cad2d4dedeb51f85078def33ff6"
+      }
+    }
+  },
+  "dataset_fingerprint": "ec1a56d3012b5690376ef55f56fa71c513e01d70a17725e2bc1f9e025f969e7c",
+  "indexes": [
+    {
+      "name": "customers_pkey",
+      "definition": "CREATE UNIQUE INDEX customers_pkey ON kmogo.customers USING btree (customer_id)",
+      "bytes": 245760
+    },
+    {
+      "name": "dataset_metadata_pkey",
+      "definition": "CREATE UNIQUE INDEX dataset_metadata_pkey ON kmogo.dataset_metadata USING btree (dataset_id)",
+      "bytes": 16384
+    },
+    {
+      "name": "orders_pkey",
+      "definition": "CREATE UNIQUE INDEX orders_pkey ON kmogo.orders USING btree (order_id)",
+      "bytes": 4513792
+    }
+  ],
+  "settings": {
+    "default_statistics_target": "100",
+    "effective_cache_size": "524288",
+    "jit": "off",
+    "lock_timeout": "5000",
+    "maintenance_work_mem": "65536",
+    "max_parallel_workers_per_gather": "0",
+    "random_page_cost": "4",
+    "seq_page_cost": "1",
+    "server_encoding": "UTF8",
+    "shared_buffers": "16384",
+    "statement_timeout": "30000",
+    "TimeZone": "UTC",
+    "track_io_timing": "off",
+    "work_mem": "4096"
+  },
+  "client": {
+    "python": "3.12.14",
+    "psycopg": "3.2.9",
+    "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.36",
+    "cpu_count": 12
+  },
+  "source_revision": "7ec05bb4309c007f4fee01273fa2dff2b4f36b24",
+  "schema_sha256": "d5e8e4c9ade74811db536779ca95aac4aefb62652a2f1a2192ff9cfd7c7df0cd"
+}

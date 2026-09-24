@@ -1,0 +1,846 @@
+{
+  "status": "passed",
+  "started_at": "2026-09-24T05:23:52.4005605Z",
+  "source_revision": "7ec05bb4309c007f4fee01273fa2dff2b4f36b24",
+  "powershell_version": "7.6.6",
+  "checks": {
+    "engine": "passed",
+    "compose_configuration": "passed",
+    "initial_health": "passed",
+    "runner_build": "passed",
+    "client_connection_and_load": "passed",
+    "integration_tests": "passed",
+    "three_experiment_cycles": "passed",
+    "volume_recreation": "passed"
+  },
+  "cycles": [
+    {
+      "cycle": 1,
+      "comparison": {
+        "format_version": 1,
+        "baseline_run_id": "39319760-51af-4f11-a635-f991d9c38f4e",
+        "candidate_run_id": "bf2df785-89af-492d-8b2c-e2a9034cdd3c",
+        "metric": "sum of plain-query client elapsed milliseconds per repetition",
+        "change_convention": "negative percent is faster; positive percent is slower",
+        "workload": {
+          "baseline": {
+            "count": 5,
+            "min_ms": 125.25556399999999,
+            "max_ms": 136.008158,
+            "mean_ms": 129.5243972,
+            "median_ms": 129.373526,
+            "p95_ms": 136.008158
+          },
+          "candidate": {
+            "count": 5,
+            "min_ms": 67.634583,
+            "max_ms": 82.58410099999999,
+            "mean_ms": 74.602222,
+            "median_ms": 74.724419,
+            "p95_ms": 82.58410099999999
+          },
+          "mean_change_pct": -42.40295757963968
+        },
+        "queries": [
+          {
+            "query_id": "01_customer_orders",
+            "baseline": {
+              "count": 5,
+              "min_ms": 24.223887,
+              "max_ms": 32.249544,
+              "mean_ms": 26.685960599999998,
+              "median_ms": 25.590038,
+              "p95_ms": 32.249544
+            },
+            "candidate": {
+              "count": 5,
+              "min_ms": 0.910808,
+              "max_ms": 1.536447,
+              "mean_ms": 1.1978014,
+              "median_ms": 1.24417,
+              "p95_ms": 1.536447
+            },
+            "mean_change_pct": -95.51149228632228,
+            "baseline_plan": {
+              "root_nodes": [
+                "Sort"
+              ],
+              "scan_types": [
+                "Seq Scan"
+              ],
+              "indexes_used": [],
+              "execution_ms": {
+                "count": 5,
+                "min_ms": 23.099,
+                "max_ms": 26.107,
+                "mean_ms": 24.4334,
+                "median_ms": 23.911,
+                "p95_ms": 26.107
+              }
+            },
+            "candidate_plan": {
+              "root_nodes": [
+                "Sort"
+              ],
+              "scan_types": [
+                "Bitmap Heap Scan",
+                "Bitmap Index Scan"
+              ],
+              "indexes_used": [
+                "orders_customer_date_idx"
+              ],
+              "execution_ms": {
+                "count": 5,
+                "min_ms": 0.097,
+                "max_ms": 0.122,
+                "mean_ms": 0.10500000000000001,
+                "median_ms": 0.099,
+                "p95_ms": 0.122
+              }
+            }
+          },
+          {
+            "query_id": "02_customer_totals",
+            "baseline": {
+              "count": 5,
+              "min_ms": 29.603445,
+              "max_ms": 33.247185,
+              "mean_ms": 31.225316400000004,
+              "median_ms": 31.397043,
+              "p95_ms": 33.247185
+            },
+            "candidate": {
+              "count": 5,
+              "min_ms": 3.512436,
+              "max_ms": 5.400505,
+              "mean_ms": 4.396723,
+              "median_ms": 3.890201,
+              "p95_ms": 5.400505
+            },
+            "mean_change_pct": -85.91936445518292,
+            "baseline_plan": {
+              "root_nodes": [
+                "Sort"
+              ],
+              "scan_types": [
+                "Index Scan",
+                "Seq Scan"
+              ],
+              "indexes_used": [
+                "customers_pkey"
+              ],
+              "execution_ms": {
+                "count": 5,
+                "min_ms": 57.534,
+                "max_ms": 74.3,
+                "mean_ms": 64.03819999999999,
+                "median_ms": 61.856,
+                "p95_ms": 74.3
+              }
+            },
+            "candidate_plan": {
+              "root_nodes": [
+                "Aggregate"
+              ],
+              "scan_types": [
+                "Bitmap Heap Scan",
+                "Bitmap Index Scan",
+                "Index Scan"
+              ],
+              "indexes_used": [
+                "customers_pkey",
+                "orders_customer_date_idx"
+              ],
+              "execution_ms": {
+                "count": 5,
+                "min_ms": 2.441,
+                "max_ms": 3.152,
+                "mean_ms": 2.7286,
+                "median_ms": 2.557,
+                "p95_ms": 3.152
+              }
+            }
+          },
+          {
+            "query_id": "03_status_summary",
+            "baseline": {
+              "count": 5,
+              "min_ms": 63.402575,
+              "max_ms": 76.825687,
+              "mean_ms": 71.6131202,
+              "median_ms": 72.000591,
+              "p95_ms": 76.825687
+            },
+            "candidate": {
+              "count": 5,
+              "min_ms": 62.877977,
+              "max_ms": 76.248831,
+              "mean_ms": 69.0076976,
+              "median_ms": 68.011892,
+              "p95_ms": 76.248831
+            },
+            "mean_change_pct": -3.6381917066643847,
+            "baseline_plan": {
+              "root_nodes": [
+                "Sort"
+              ],
+              "scan_types": [
+                "Seq Scan"
+              ],
+              "indexes_used": [],
+              "execution_ms": {
+                "count": 5,
+                "min_ms": 76.232,
+                "max_ms": 99.786,
+                "mean_ms": 88.306,
+                "median_ms": 89.559,
+                "p95_ms": 99.786
+              }
+            },
+            "candidate_plan": {
+              "root_nodes": [
+                "Sort"
+              ],
+              "scan_types": [
+                "Seq Scan"
+              ],
+              "indexes_used": [],
+              "execution_ms": {
+                "count": 5,
+                "min_ms": 76.573,
+                "max_ms": 91.25,
+                "mean_ms": 82.0288,
+                "median_ms": 81.021,
+                "p95_ms": 91.25
+              }
+            }
+          }
+        ],
+        "baseline_indexes": [
+          {
+            "name": "customers_pkey",
+            "definition": "CREATE UNIQUE INDEX customers_pkey ON kmogo.customers USING btree (customer_id)",
+            "bytes": 245760
+          },
+          {
+            "name": "dataset_metadata_pkey",
+            "definition": "CREATE UNIQUE INDEX dataset_metadata_pkey ON kmogo.dataset_metadata USING btree (dataset_id)",
+            "bytes": 16384
+          },
+          {
+            "name": "orders_pkey",
+            "definition": "CREATE UNIQUE INDEX orders_pkey ON kmogo.orders USING btree (order_id)",
+            "bytes": 4513792
+          }
+        ],
+        "candidate_indexes": [
+          {
+            "name": "customers_pkey",
+            "definition": "CREATE UNIQUE INDEX customers_pkey ON kmogo.customers USING btree (customer_id)",
+            "bytes": 245760
+          },
+          {
+            "name": "dataset_metadata_pkey",
+            "definition": "CREATE UNIQUE INDEX dataset_metadata_pkey ON kmogo.dataset_metadata USING btree (dataset_id)",
+            "bytes": 16384
+          },
+          {
+            "name": "orders_customer_date_idx",
+            "definition": "CREATE INDEX orders_customer_date_idx ON kmogo.orders USING btree (customer_id, order_date)",
+            "bytes": 4513792
+          },
+          {
+            "name": "orders_pkey",
+            "definition": "CREATE UNIQUE INDEX orders_pkey ON kmogo.orders USING btree (order_id)",
+            "bytes": 4513792
+          }
+        ],
+        "limitations": [
+          "Warm cache, fixed query order, sequential single-client measurements.",
+          "EXPLAIN adds overhead and warms caches but is outside the primary timer.",
+          "Small synthetic dataset and local timing noise; no statistical significance claim.",
+          "Read-only workload does not measure index write/maintenance costs."
+        ],
+        "index_setup_including_analyze_ms": 342.5019839996821
+      }
+    },
+    {
+      "cycle": 2,
+      "comparison": {
+        "format_version": 1,
+        "baseline_run_id": "a9319451-e966-4ff3-b64e-3d59f1a76657",
+        "candidate_run_id": "5ea31152-be9e-4e28-ae4e-1ba6746e5589",
+        "metric": "sum of plain-query client elapsed milliseconds per repetition",
+        "change_convention": "negative percent is faster; positive percent is slower",
+        "workload": {
+          "baseline": {
+            "count": 5,
+            "min_ms": 117.932496,
+            "max_ms": 136.75154600000002,
+            "mean_ms": 126.3558472,
+            "median_ms": 123.925558,
+            "p95_ms": 136.75154600000002
+          },
+          "candidate": {
+            "count": 5,
+            "min_ms": 72.389146,
+            "max_ms": 85.511501,
+            "mean_ms": 79.5230612,
+            "median_ms": 77.337885,
+            "p95_ms": 85.511501
+          },
+          "mean_change_pct": -37.06420164780471
+        },
+        "queries": [
+          {
+            "query_id": "01_customer_orders",
+            "baseline": {
+              "count": 5,
+              "min_ms": 23.926108,
+              "max_ms": 34.133826,
+              "mean_ms": 26.487304599999998,
+              "median_ms": 24.555872,
+              "p95_ms": 34.133826
+            },
+            "candidate": {
+              "count": 5,
+              "min_ms": 0.701402,
+              "max_ms": 1.270649,
+              "mean_ms": 1.0083322,
+              "median_ms": 1.036183,
+              "p95_ms": 1.270649
+            },
+            "mean_change_pct": -96.19314907565189,
+            "baseline_plan": {
+              "root_nodes": [
+                "Sort"
+              ],
+              "scan_types": [
+                "Seq Scan"
+              ],
+              "indexes_used": [],
+              "execution_ms": {
+                "count": 5,
+                "min_ms": 22.72,
+                "max_ms": 30.586,
+                "mean_ms": 25.651400000000002,
+                "median_ms": 24.59,
+                "p95_ms": 30.586
+              }
+            },
+            "candidate_plan": {
+              "root_nodes": [
+                "Sort"
+              ],
+              "scan_types": [
+                "Bitmap Heap Scan",
+                "Bitmap Index Scan"
+              ],
+              "indexes_used": [
+                "orders_customer_date_idx"
+              ],
+              "execution_ms": {
+                "count": 5,
+                "min_ms": 0.1,
+                "max_ms": 0.115,
+                "mean_ms": 0.10840000000000001,
+                "median_ms": 0.111,
+                "p95_ms": 0.115
+              }
+            }
+          },
+          {
+            "query_id": "02_customer_totals",
+            "baseline": {
+              "count": 5,
+              "min_ms": 28.677287,
+              "max_ms": 34.078068,
+              "mean_ms": 31.0432992,
+              "median_ms": 31.20313,
+              "p95_ms": 34.078068
+            },
+            "candidate": {
+              "count": 5,
+              "min_ms": 3.431153,
+              "max_ms": 5.915719,
+              "mean_ms": 4.5454416,
+              "median_ms": 4.386764,
+              "p95_ms": 5.915719
+            },
+            "mean_change_pct": -85.35773671891162,
+            "baseline_plan": {
+              "root_nodes": [
+                "Sort"
+              ],
+              "scan_types": [
+                "Index Scan",
+                "Seq Scan"
+              ],
+              "indexes_used": [
+                "customers_pkey"
+              ],
+              "execution_ms": {
+                "count": 5,
+                "min_ms": 58.387,
+                "max_ms": 62.577,
+                "mean_ms": 60.0264,
+                "median_ms": 59.224,
+                "p95_ms": 62.577
+              }
+            },
+            "candidate_plan": {
+              "root_nodes": [
+                "Aggregate"
+              ],
+              "scan_types": [
+                "Bitmap Heap Scan",
+                "Bitmap Index Scan",
+                "Index Scan"
+              ],
+              "indexes_used": [
+                "customers_pkey",
+                "orders_customer_date_idx"
+              ],
+              "execution_ms": {
+                "count": 5,
+                "min_ms": 2.324,
+                "max_ms": 3.475,
+                "mean_ms": 3.045,
+                "median_ms": 3.289,
+                "p95_ms": 3.475
+              }
+            }
+          },
+          {
+            "query_id": "03_status_summary",
+            "baseline": {
+              "count": 5,
+              "min_ms": 61.600875,
+              "max_ms": 79.14247,
+              "mean_ms": 68.8252434,
+              "median_ms": 67.927644,
+              "p95_ms": 79.14247
+            },
+            "candidate": {
+              "count": 5,
+              "min_ms": 66.966199,
+              "max_ms": 80.535771,
+              "mean_ms": 73.9692874,
+              "median_ms": 72.269303,
+              "p95_ms": 80.535771
+            },
+            "mean_change_pct": 7.474065830909933,
+            "baseline_plan": {
+              "root_nodes": [
+                "Sort"
+              ],
+              "scan_types": [
+                "Seq Scan"
+              ],
+              "indexes_used": [],
+              "execution_ms": {
+                "count": 5,
+                "min_ms": 69.136,
+                "max_ms": 89.014,
+                "mean_ms": 77.5894,
+                "median_ms": 76.695,
+                "p95_ms": 89.014
+              }
+            },
+            "candidate_plan": {
+              "root_nodes": [
+                "Sort"
+              ],
+              "scan_types": [
+                "Seq Scan"
+              ],
+              "indexes_used": [],
+              "execution_ms": {
+                "count": 5,
+                "min_ms": 79.462,
+                "max_ms": 88.258,
+                "mean_ms": 83.3562,
+                "median_ms": 83.863,
+                "p95_ms": 88.258
+              }
+            }
+          }
+        ],
+        "baseline_indexes": [
+          {
+            "name": "customers_pkey",
+            "definition": "CREATE UNIQUE INDEX customers_pkey ON kmogo.customers USING btree (customer_id)",
+            "bytes": 245760
+          },
+          {
+            "name": "dataset_metadata_pkey",
+            "definition": "CREATE UNIQUE INDEX dataset_metadata_pkey ON kmogo.dataset_metadata USING btree (dataset_id)",
+            "bytes": 16384
+          },
+          {
+            "name": "orders_pkey",
+            "definition": "CREATE UNIQUE INDEX orders_pkey ON kmogo.orders USING btree (order_id)",
+            "bytes": 4513792
+          }
+        ],
+        "candidate_indexes": [
+          {
+            "name": "customers_pkey",
+            "definition": "CREATE UNIQUE INDEX customers_pkey ON kmogo.customers USING btree (customer_id)",
+            "bytes": 245760
+          },
+          {
+            "name": "dataset_metadata_pkey",
+            "definition": "CREATE UNIQUE INDEX dataset_metadata_pkey ON kmogo.dataset_metadata USING btree (dataset_id)",
+            "bytes": 16384
+          },
+          {
+            "name": "orders_customer_date_idx",
+            "definition": "CREATE INDEX orders_customer_date_idx ON kmogo.orders USING btree (customer_id, order_date)",
+            "bytes": 4513792
+          },
+          {
+            "name": "orders_pkey",
+            "definition": "CREATE UNIQUE INDEX orders_pkey ON kmogo.orders USING btree (order_id)",
+            "bytes": 4513792
+          }
+        ],
+        "limitations": [
+          "Warm cache, fixed query order, sequential single-client measurements.",
+          "EXPLAIN adds overhead and warms caches but is outside the primary timer.",
+          "Small synthetic dataset and local timing noise; no statistical significance claim.",
+          "Read-only workload does not measure index write/maintenance costs."
+        ],
+        "index_setup_including_analyze_ms": 372.2171069994147
+      }
+    },
+    {
+      "cycle": 3,
+      "comparison": {
+        "format_version": 1,
+        "baseline_run_id": "000de96c-cf95-4705-9d57-97bdefff0157",
+        "candidate_run_id": "202b9299-78fb-49b8-ad61-6cb7e21a1ff6",
+        "metric": "sum of plain-query client elapsed milliseconds per repetition",
+        "change_convention": "negative percent is faster; positive percent is slower",
+        "workload": {
+          "baseline": {
+            "count": 5,
+            "min_ms": 121.14533,
+            "max_ms": 154.069882,
+            "mean_ms": 137.9469324,
+            "median_ms": 139.979831,
+            "p95_ms": 154.069882
+          },
+          "candidate": {
+            "count": 5,
+            "min_ms": 67.827235,
+            "max_ms": 95.47363700000001,
+            "mean_ms": 80.2600362,
+            "median_ms": 79.01380099999999,
+            "p95_ms": 95.47363700000001
+          },
+          "mean_change_pct": -41.81817978577971
+        },
+        "queries": [
+          {
+            "query_id": "01_customer_orders",
+            "baseline": {
+              "count": 5,
+              "min_ms": 23.846426,
+              "max_ms": 30.166362,
+              "mean_ms": 27.5233804,
+              "median_ms": 28.381875,
+              "p95_ms": 30.166362
+            },
+            "candidate": {
+              "count": 5,
+              "min_ms": 0.656543,
+              "max_ms": 4.519384,
+              "mean_ms": 1.652777,
+              "median_ms": 1.062144,
+              "p95_ms": 4.519384
+            },
+            "mean_change_pct": -93.99500724118901,
+            "baseline_plan": {
+              "root_nodes": [
+                "Sort"
+              ],
+              "scan_types": [
+                "Seq Scan"
+              ],
+              "indexes_used": [],
+              "execution_ms": {
+                "count": 5,
+                "min_ms": 24.422,
+                "max_ms": 34.533,
+                "mean_ms": 27.785199999999996,
+                "median_ms": 25.303,
+                "p95_ms": 34.533
+              }
+            },
+            "candidate_plan": {
+              "root_nodes": [
+                "Sort"
+              ],
+              "scan_types": [
+                "Bitmap Heap Scan",
+                "Bitmap Index Scan"
+              ],
+              "indexes_used": [
+                "orders_customer_date_idx"
+              ],
+              "execution_ms": {
+                "count": 5,
+                "min_ms": 0.081,
+                "max_ms": 0.145,
+                "mean_ms": 0.1026,
+                "median_ms": 0.094,
+                "p95_ms": 0.145
+              }
+            }
+          },
+          {
+            "query_id": "02_customer_totals",
+            "baseline": {
+              "count": 5,
+              "min_ms": 30.643322,
+              "max_ms": 32.380823,
+              "mean_ms": 31.3927816,
+              "median_ms": 31.077215,
+              "p95_ms": 32.380823
+            },
+            "candidate": {
+              "count": 5,
+              "min_ms": 3.423467,
+              "max_ms": 5.294347,
+              "mean_ms": 4.0135258,
+              "median_ms": 3.502966,
+              "p95_ms": 5.294347
+            },
+            "mean_change_pct": -87.21513164669678,
+            "baseline_plan": {
+              "root_nodes": [
+                "Sort"
+              ],
+              "scan_types": [
+                "Index Scan",
+                "Seq Scan"
+              ],
+              "indexes_used": [
+                "customers_pkey"
+              ],
+              "execution_ms": {
+                "count": 5,
+                "min_ms": 56.62,
+                "max_ms": 64.525,
+                "mean_ms": 59.6562,
+                "median_ms": 59.263,
+                "p95_ms": 64.525
+              }
+            },
+            "candidate_plan": {
+              "root_nodes": [
+                "Aggregate"
+              ],
+              "scan_types": [
+                "Bitmap Heap Scan",
+                "Bitmap Index Scan",
+                "Index Scan"
+              ],
+              "indexes_used": [
+                "customers_pkey",
+                "orders_customer_date_idx"
+              ],
+              "execution_ms": {
+                "count": 5,
+                "min_ms": 2.32,
+                "max_ms": 5.189,
+                "mean_ms": 3.438,
+                "median_ms": 3.341,
+                "p95_ms": 5.189
+              }
+            }
+          },
+          {
+            "query_id": "03_status_summary",
+            "baseline": {
+              "count": 5,
+              "min_ms": 65.439182,
+              "max_ms": 94.610792,
+              "mean_ms": 79.03077040000001,
+              "median_ms": 81.066284,
+              "p95_ms": 94.610792
+            },
+            "candidate": {
+              "count": 5,
+              "min_ms": 62.412914,
+              "max_ms": 85.659906,
+              "mean_ms": 74.59373339999999,
+              "median_ms": 74.862586,
+              "p95_ms": 85.659906
+            },
+            "mean_change_pct": -5.6143157627627245,
+            "baseline_plan": {
+              "root_nodes": [
+                "Sort"
+              ],
+              "scan_types": [
+                "Seq Scan"
+              ],
+              "indexes_used": [],
+              "execution_ms": {
+                "count": 5,
+                "min_ms": 76.134,
+                "max_ms": 97.587,
+                "mean_ms": 86.0552,
+                "median_ms": 84.658,
+                "p95_ms": 97.587
+              }
+            },
+            "candidate_plan": {
+              "root_nodes": [
+                "Sort"
+              ],
+              "scan_types": [
+                "Seq Scan"
+              ],
+              "indexes_used": [],
+              "execution_ms": {
+                "count": 5,
+                "min_ms": 75.258,
+                "max_ms": 90.872,
+                "mean_ms": 81.72999999999999,
+                "median_ms": 82.39,
+                "p95_ms": 90.872
+              }
+            }
+          }
+        ],
+        "baseline_indexes": [
+          {
+            "name": "customers_pkey",
+            "definition": "CREATE UNIQUE INDEX customers_pkey ON kmogo.customers USING btree (customer_id)",
+            "bytes": 245760
+          },
+          {
+            "name": "dataset_metadata_pkey",
+            "definition": "CREATE UNIQUE INDEX dataset_metadata_pkey ON kmogo.dataset_metadata USING btree (dataset_id)",
+            "bytes": 16384
+          },
+          {
+            "name": "orders_pkey",
+            "definition": "CREATE UNIQUE INDEX orders_pkey ON kmogo.orders USING btree (order_id)",
+            "bytes": 4513792
+          }
+        ],
+        "candidate_indexes": [
+          {
+            "name": "customers_pkey",
+            "definition": "CREATE UNIQUE INDEX customers_pkey ON kmogo.customers USING btree (customer_id)",
+            "bytes": 245760
+          },
+          {
+            "name": "dataset_metadata_pkey",
+            "definition": "CREATE UNIQUE INDEX dataset_metadata_pkey ON kmogo.dataset_metadata USING btree (dataset_id)",
+            "bytes": 16384
+          },
+          {
+            "name": "orders_customer_date_idx",
+            "definition": "CREATE INDEX orders_customer_date_idx ON kmogo.orders USING btree (customer_id, order_date)",
+            "bytes": 4513792
+          },
+          {
+            "name": "orders_pkey",
+            "definition": "CREATE UNIQUE INDEX orders_pkey ON kmogo.orders USING btree (order_id)",
+            "bytes": 4513792
+          }
+        ],
+        "limitations": [
+          "Warm cache, fixed query order, sequential single-client measurements.",
+          "EXPLAIN adds overhead and warms caches but is outside the primary timer.",
+          "Small synthetic dataset and local timing noise; no statistical significance claim.",
+          "Read-only workload does not measure index write/maintenance costs."
+        ],
+        "index_setup_including_analyze_ms": 364.4283620005808
+      }
+    }
+  ],
+  "source_dirty": false,
+  "docker_version": {
+    "Client": {
+      "CloudIntegration": "v1.0.35+desktop.11",
+      "Version": "25.0.3",
+      "ApiVersion": "1.44",
+      "DefaultAPIVersion": "1.44",
+      "GitCommit": "4debf41",
+      "GoVersion": "go1.21.6",
+      "Os": "windows",
+      "Arch": "amd64",
+      "BuildTime": "Tue Feb  6 21:13:02 2024",
+      "Context": "default"
+    },
+    "Server": {
+      "Platform": {
+        "Name": "Docker Desktop 4.28.0 (139021)"
+      },
+      "Components": [
+        {
+          "Name": "Engine",
+          "Version": "25.0.3",
+          "Details": {
+            "ApiVersion": "1.44",
+            "Arch": "amd64",
+            "BuildTime": "Tue Feb  6 21:14:25 2024",
+            "Experimental": "false",
+            "GitCommit": "f417435",
+            "GoVersion": "go1.21.6",
+            "KernelVersion": "6.18.33.2-microsoft-standard-WSL2",
+            "MinAPIVersion": "1.24",
+            "Os": "linux"
+          }
+        },
+        {
+          "Name": "containerd",
+          "Version": "1.6.28",
+          "Details": {
+            "GitCommit": "ae07eda36dd25f8a1b98dfbf587313b99c0190bb"
+          }
+        },
+        {
+          "Name": "runc",
+          "Version": "1.1.12",
+          "Details": {
+            "GitCommit": "v1.1.12-0-g51d5e94"
+          }
+        },
+        {
+          "Name": "docker-init",
+          "Version": "0.19.0",
+          "Details": {
+            "GitCommit": "de40ad0"
+          }
+        }
+      ],
+      "Version": "25.0.3",
+      "ApiVersion": "1.44",
+      "MinAPIVersion": "1.24",
+      "GitCommit": "f417435",
+      "GoVersion": "go1.21.6",
+      "Os": "linux",
+      "Arch": "amd64",
+      "KernelVersion": "6.18.33.2-microsoft-standard-WSL2",
+      "BuildTime": "2024-02-06T21:14:25.000000000+00:00"
+    }
+  },
+  "initial_container_id": "fc915887bbfdf8642f09c6304a5fa5eed4a7ad8584f54223e3756c5a4d2c8133",
+  "postgres_image_id": "sha256:345c8087a592c68bc6b1c347bb865b43e14cdefec77d741f85195588028f57a4",
+  "postgres_image_digests": "postgres@sha256:efedf3595f1d6f415c08568ba171029bf54052e754cc9f030e3f2412b21f3d67",
+  "volume_name": "kmogo-mp1_postgres_data",
+  "initial_volume_created_at": "2026-09-24T05:24:36Z",
+  "runner_image_id": "sha256:cf8dceabb84733850ef75eaa2f20ee28084009fc939f8402a94560914579f41b",
+  "initial_fingerprint": "ec1a56d3012b5690376ef55f56fa71c513e01d70a17725e2bc1f9e025f969e7c",
+  "recreated_container_id": "e0f5900a40a4badd757df6db18703c1e836875d8e795fbd5464db4905323a021",
+  "recreated_volume_created_at": "2026-09-24T05:27:43Z",
+  "recreated_fingerprint": "ec1a56d3012b5690376ef55f56fa71c513e01d70a17725e2bc1f9e025f969e7c",
+  "finished_at": "2026-09-24T05:27:55.4770296Z"
+}

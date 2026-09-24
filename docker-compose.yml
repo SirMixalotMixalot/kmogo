@@ -1,0 +1,41 @@
+name: kmogo-mp1
+
+services:
+  postgres:
+    image: postgres:16-bookworm
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Copy .env.example to .env first}
+      POSTGRES_USER: ${POSTGRES_USER:?Copy .env.example to .env first}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Copy .env.example to .env first}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-55432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/001-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+
+  runner:
+    profiles: ["tools"]
+    build:
+      context: .
+      dockerfile: runner/Dockerfile
+    environment:
+      PGHOST: postgres
+      PGPORT: 5432
+      PGDATABASE: ${POSTGRES_DB:?Copy .env.example to .env first}
+      PGUSER: ${POSTGRES_USER:?Copy .env.example to .env first}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Copy .env.example to .env first}
+      KMOGO_REVISION: ${KMOGO_REVISION:-unrecorded}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./results:/app/results
+
+volumes:
+  postgres_data:
