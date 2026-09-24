@@ -2,7 +2,7 @@
 
 University of Waterloo SE390 capstone: **Intelligent Cloud Database Autotuner**.
 MP1 focuses on PostgreSQL index optimization. This slice establishes a
-reproducible workload â†’ baseline â†’ query plan â†’ manual index â†’ comparison loop.
+reproducible workload Ã¢â€ â€™ baseline Ã¢â€ â€™ query plan Ã¢â€ â€™ manual index Ã¢â€ â€™ comparison loop.
 The AI/search strategy remains undecided.
 
 **Validation status:** the runner and three index-experiment cycles passed on native
@@ -137,6 +137,25 @@ Optional host Python workflow (Python 3.10+): create a virtual environment,
 `PGDATABASE`, `PGUSER`, `PGPASSWORD` variables from your configuration, then use
 `python -m runner` with the same arguments. The runner does not read `.env`
 directly; Compose maps it to the PG variables.
+
+## One-command Docker validation on Windows
+
+From your normal terminal with Docker Desktop's Linux engine running:
+
+~~~powershell
+pwsh -NoProfile -File scripts/validate-docker.ps1
+~~~
+
+The script builds the runner, checks PostgreSQL health/client access, runs the
+integration suite and three index-experiment cycles, then **deletes and recreates
+the kmogo-mp1 development volume**. It verifies the recreated dataset fingerprint
+and baseline indexes. Existing Kmogo development data is reset.
+
+Logs, image identities, checks and result JSON are saved in a new
+results/docker-validation-TIMESTAMP directory. Failed checks return a nonzero
+exit code and preserve their logs. A successful run leaves PostgreSQL healthy
+with baseline data. Run this from a terminal that can access Docker; the Codex
+sandbox may be denied access even while Docker Desktop is running.
 
 ## Measurement limits and next work
 

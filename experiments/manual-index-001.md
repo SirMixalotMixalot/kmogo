@@ -16,7 +16,7 @@ portability, or a general index recommendation.
 
 ## Environment and data
 
-- Measurements: 2026-09-24 02:57–02:59 UTC.
+- Measurements: 2026-09-24 02:57â€“02:59 UTC.
 - Source revision: f4e0af39df9fa8b1afe5d9f91027f93603adea4c.
 - Server: PostgreSQL 16.15, compiled by Visual C++ build 1944, 64-bit.
 - Client: Python 3.13.11, psycopg 3.2.9, Windows 11 build 26200;
@@ -58,15 +58,15 @@ indexed median 90.326 ms. Individual samples and distributions are retained.
 These means pool 15 samples per configuration. EXPLAIN timings are from a
 separate execution after each plain-query sample.
 
-| Query | Before client ms | After client ms | Change | Before → after EXPLAIN execution ms |
+| Query | Before client ms | After client ms | Change | Before â†’ after EXPLAIN execution ms |
 | --- | ---: | ---: | ---: | ---: |
-| 01_customer_orders | 35.344 | 1.005 | -97.16% | 34.408 → 0.138 |
-| 02_customer_totals | 37.430 | 4.333 | -88.42% | 68.354 → 2.933 |
-| 03_status_summary | 90.802 | 94.995 | 4.62% | 100.317 → 104.908 |
+| 01_customer_orders | 35.344 | 1.005 | -97.16% | 34.408 â†’ 0.138 |
+| 02_customer_totals | 37.430 | 4.333 | -88.42% | 68.354 â†’ 2.933 |
+| 03_status_summary | 90.802 | 94.995 | 4.62% | 100.317 â†’ 104.908 |
 
-- 01_customer_orders: sequential scan → bitmap index/heap scan using
+- 01_customer_orders: sequential scan â†’ bitmap index/heap scan using
   orders_customer_date_idx.
-- 02_customer_totals: orders sequential scan → bitmap index/heap scans using
+- 02_customer_totals: orders sequential scan â†’ bitmap index/heap scans using
   orders_customer_date_idx; customers_pkey is also used.
 - 03_status_summary: sequential scan in both states; candidate index unused.
   Changes were -7.18%, +4.35%, and +15.54% by cycle. The pooled 4.62% regression
@@ -132,7 +132,15 @@ measurements must not be presented as container measurements.
 
 ## Next acceptance check
 
-Run from a terminal with Docker engine access:
+On Windows, the same checks plus three full experiment cycles and saved runtime
+metadata are automated by scripts/validate-docker.ps1. Run it from a normal
+terminal with Docker engine access:
+
+~~~powershell
+pwsh -NoProfile -File scripts/validate-docker.ps1
+~~~
+
+For manual execution, the component commands are:
 
 ~~~sh
 docker compose up -d --wait postgres
