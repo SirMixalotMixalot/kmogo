@@ -19,5 +19,23 @@ services:
       retries: 30
       start_period: 10s
 
+  runner:
+    profiles: ["tools"]
+    build:
+      context: .
+      dockerfile: runner/Dockerfile
+    environment:
+      PGHOST: postgres
+      PGPORT: 5432
+      PGDATABASE: ${POSTGRES_DB:?Copy .env.example to .env first}
+      PGUSER: ${POSTGRES_USER:?Copy .env.example to .env first}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Copy .env.example to .env first}
+      KMOGO_REVISION: ${KMOGO_REVISION:-unrecorded}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./results:/app/results
+
 volumes:
   postgres_data:
