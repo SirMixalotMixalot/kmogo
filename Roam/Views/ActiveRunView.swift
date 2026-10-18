@@ -89,9 +89,6 @@ struct ActiveRunView: View {
             }
             .mapStyle(.standard(elevation: .realistic, pointsOfInterest: .excludingAll))
             .mapControls { MapCompass() }
-            .onMapCameraChange(frequency: .onEnd) { ctx in
-                _ = ctx // user panning keeps their view; tap "follow" to re-lock.
-            }
         } else {
             LinearGradient(colors: [Theme.dusk, Theme.night], startPoint: .top, endPoint: .bottom)
         }

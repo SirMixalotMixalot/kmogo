@@ -27,7 +27,7 @@ final class AppStore {
     @ObservationIgnored var notificationsEnabled: Bool
     @ObservationIgnored var clock: () -> Date = Date.init
 
-    static var defaultURL: URL {
+    nonisolated static var defaultURL: URL {
         let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir.appendingPathComponent("roam-state.json")
