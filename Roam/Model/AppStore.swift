@@ -280,6 +280,31 @@ final class AppStore {
         advance(by: km)
     }
 
+    // MARK: - Demo data (DEBUG launch arguments: -demo, -demoRun, -demoSummary)
+
+    #if DEBUG
+    func seedDemoIfRequested() async {
+        let args = ProcessInfo.processInfo.arguments
+        guard args.contains("-demo"), state.profile == nil else { return }
+        completeOnboarding(name: "Patrick", home: Cities.waterloo, pace: 360)
+        await setDestination(Cities.city(id: "montreal")!)
+        let realClock = clock
+        var t = Date().addingTimeInterval(-6 * 86_400)
+        for km in [5.0, 10, 21.0975, 80] { // ...ending with an 8 hour finals-season ultra
+            clock = { t }
+            startRun(km: km)
+            t += km * Double(pace)
+            finishRun()
+            t += 86_400
+        }
+        clock = realClock
+        finishedRunID = nil
+        arrivedCity = nil
+        if args.contains("-demoSummary") { finishedRunID = longestRun?.id }
+        if args.contains("-demoRun") { startRun(km: 5) }
+    }
+    #endif
+
     // MARK: - Profile
 
     func updateProfile(_ change: (inout Profile) -> Void) {

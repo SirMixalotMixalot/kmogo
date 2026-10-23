@@ -59,7 +59,12 @@ struct RootView: View {
             store.finishedRunID = nil
             store.lobbyInvite = invite
         }
-        .task { store.appDidBecomeActive() }
+        .task {
+            #if DEBUG
+            await store.seedDemoIfRequested()
+            #endif
+            store.appDidBecomeActive()
+        }
     }
 }
 
@@ -86,16 +91,25 @@ struct RunFlowView: View {
 }
 
 struct MainTabs: View {
+    @State private var tab = MainTabs.initialTab
+
+    /// DEBUG: `-tab N` opens a specific tab (handy for screenshots).
+    private static var initialTab: Int {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "-tab"), i + 1 < args.count else { return 0 }
+        return Int(args[i + 1]) ?? 0
+    }
+
     var body: some View {
-        TabView {
+        TabView(selection: $tab) {
             RunSetupView()
-                .tabItem { Label("Run", systemImage: "figure.run") }
+                .tabItem { Label("Run", systemImage: "figure.run") }.tag(0)
             JourneyView()
-                .tabItem { Label("Journey", systemImage: "map.fill") }
+                .tabItem { Label("Journey", systemImage: "map.fill") }.tag(1)
             ShopView()
-                .tabItem { Label("Shop", systemImage: "ticket.fill") }
+                .tabItem { Label("Shop", systemImage: "ticket.fill") }.tag(2)
             PassportView()
-                .tabItem { Label("Passport", systemImage: "person.crop.square.filled.and.at.rectangle") }
+                .tabItem { Label("Passport", systemImage: "person.crop.square.filled.and.at.rectangle") }.tag(3)
         }
     }
 }
