@@ -4,7 +4,7 @@ import Foundation
 
 struct City: Codable, Hashable, Identifiable, Sendable {
     let id: String
-    let name: String
+    var name: String
     let region: String
     let emoji: String
     let coordinate: Coordinate
@@ -77,34 +77,81 @@ struct RunRecord: Codable, Hashable, Identifiable {
     var groupHost: String?
     var distractions: Int
     var coins: Int
+    var explore: Bool = false
 
     var duration: TimeInterval { endDate.timeIntervalSince(startDate) }
     var isGroup: Bool { groupHost != nil }
-    var routeLabel: String { "\(legFrom) → \(legTo)" }
+    var routeLabel: String {
+        if explore {
+            if let endPlace, endPlace != legFrom { return "\(legFrom) → \(endPlace)" }
+            return "Exploring \(legFrom)"
+        }
+        return "\(legFrom) → \(legTo)"
+    }
+}
+
+enum RunKind: String, Codable {
+    /// Follows the route toward your destination city.
+    case journey
+    /// A free run anywhere on the map; your runner ends up where it finishes.
+    case explore
 }
 
 /// The run currently in progress. Persisted so a relaunch resumes it.
+///
+/// Times are "study time": with a cheat time-warp the run plays back faster in
+/// real time, but is recorded as if the full duration was studied.
 struct ActiveRun: Codable, Equatable {
     var id = UUID()
+    var kind: RunKind
     var startDate: Date
-    var endDate: Date
+    var duration: TimeInterval
+    var warp: Double = 1
     var plannedKm: Double
     var paceSecPerKm: Int
-    var startProgressKm: Double
-    var legID: UUID
+    /// The path the runner follows; represents `routeKm` real kilometres (≤ plannedKm).
+    var route: [Coordinate]
+    var routeKm: Double
+    var legID: UUID?
+    var startProgressKm: Double = 0
     var group: GroupInvite?
     var distractions = 0
     var backgroundedAt: Date?
 
-    var duration: TimeInterval { endDate.timeIntervalSince(startDate) }
+    var realEndDate: Date { startDate.addingTimeInterval(duration / max(warp, 1)) }
 
-    func fraction(at now: Date) -> Double {
-        guard duration > 0 else { return 1 }
-        return min(1, max(0, now.timeIntervalSince(startDate) / duration))
+    func elapsed(at now: Date) -> TimeInterval {
+        min(duration, max(0, now.timeIntervalSince(startDate) * max(warp, 1)))
     }
 
+    func fraction(at now: Date) -> Double { duration > 0 ? elapsed(at: now) / duration : 1 }
     func distanceKm(at now: Date) -> Double { plannedKm * fraction(at: now) }
-    func remaining(at now: Date) -> TimeInterval { max(0, endDate.timeIntervalSince(now)) }
+    func remaining(at now: Date) -> TimeInterval { duration - elapsed(at: now) }
+
+    private func trackKm(at now: Date, _ t: Track) -> Double {
+        guard routeKm > 0 else { return 0 }
+        return min(distanceKm(at: now), routeKm) / routeKm * t.totalKm
+    }
+
+    func coordinate(at now: Date, track: Track) -> Coordinate {
+        track.coordinate(atKm: trackKm(at: now, track)) ?? route.first ?? Coordinate(lat: 0, lon: 0)
+    }
+
+    func donePath(at now: Date, track: Track) -> [Coordinate] {
+        track.slice(fromKm: 0, toKm: trackKm(at: now, track))
+    }
+
+    func aheadPath(at now: Date, track: Track) -> [Coordinate] {
+        track.slice(fromKm: trackKm(at: now, track), toKm: track.totalKm)
+    }
+
+    /// Compass heading the runner is facing (looks ~60 m ahead to smooth out wiggles).
+    func heading(at now: Date, track: Track) -> Double {
+        let k = trackKm(at: now, track)
+        guard let a = track.coordinate(atKm: max(0, k - 0.02)),
+              let b = track.coordinate(atKm: min(track.totalKm, k + 0.06)), a != b else { return 0 }
+        return Geo.bearing(from: a, to: b)
+    }
 }
 
 // MARK: - Group runs
@@ -227,6 +274,7 @@ struct TransitRecord: Codable, Hashable, Identifiable {
     var km: Double
     var legFrom: String
     var legTo: String
+    var path: [Coordinate] = []
 }
 
 struct CollectedCity: Codable, Hashable, Identifiable {
@@ -263,17 +311,26 @@ struct GameState: Codable {
     var cities: [CollectedCity] = []
     var places: [Place] = []
     var activeRun: ActiveRun?
+    var cheats = Cheats()
+}
+
+struct Cheats: Codable, Equatable {
+    var unlocked = false
+    /// Real-time speed-up for solo runs (1 = off).
+    var warp: Double = 1
 }
 
 // MARK: - Run presets
 
 enum RunPreset: String, CaseIterable, Identifiable {
-    case fiveK, tenK, half, marathon, custom
+    case oneK, threeK, fiveK, tenK, half, marathon, custom
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
+        case .oneK: "1K"
+        case .threeK: "3K"
         case .fiveK: "5K"
         case .tenK: "10K"
         case .half: "Half"
@@ -284,6 +341,8 @@ enum RunPreset: String, CaseIterable, Identifiable {
 
     var km: Double? {
         switch self {
+        case .oneK: 1
+        case .threeK: 3
         case .fiveK: 5
         case .tenK: 10
         case .half: 21.0975

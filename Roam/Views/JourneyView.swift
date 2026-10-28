@@ -19,10 +19,15 @@ struct JourneyView: View {
     }
 
     private var worldMap: some View {
-        Map(initialPosition: .automatic) {
-            ForEach(store.state.completedLegs) { leg in
-                MapPolyline(coordinates: leg.path.clCoordinates)
-                    .stroke(Theme.orange.opacity(0.85), style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
+        Map(initialPosition: .automatic, interactionModes: .all) {
+            // Everywhere you've actually been: runs (solid) and ticket rides (dashed).
+            ForEach(store.state.runs) { run in
+                MapPolyline(coordinates: run.path.clCoordinates)
+                    .stroke(Theme.orange.opacity(0.9), style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
+            }
+            ForEach(store.state.transits) { ride in
+                MapPolyline(coordinates: ride.path.clCoordinates)
+                    .stroke(.purple.opacity(0.8), style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [6, 6]))
             }
             if let leg = store.state.currentLeg {
                 let track = leg.track
@@ -41,9 +46,7 @@ struct JourneyView: View {
                         .overlay(Circle().stroke(Theme.orange, lineWidth: 2))
                 }
             }
-            if let here = store.currentCoordinate {
-                Annotation("You", coordinate: here.cl) { RunnerDot(size: 30) }
-            }
+            Annotation("You", coordinate: store.currentCoordinate.cl) { RunnerDot(size: 30) }
         }
         .mapStyle(.standard(elevation: .realistic, pointsOfInterest: .excludingAll))
         .id(store.state.currentLeg?.id) // re-fit the camera when the leg changes
@@ -58,7 +61,11 @@ struct JourneyView: View {
             }
             Divider()
             if let leg = store.state.currentLeg {
-                Text("Heading to \(leg.to.emoji) \(leg.to.name)").font(.headline)
+                HStack {
+                    Text("Heading to \(leg.to.emoji) \(leg.to.name)").font(.headline)
+                    Spacer()
+                    Button("Change") { showDestinations = true }.font(.subheadline)
+                }
                 LegProgressBar(fraction: leg.fraction)
                 Text("\(Fmt.km(leg.remainingKm, digits: 1)) km to go · \(leg.mode.label)")
                     .font(.caption).foregroundStyle(.secondary)

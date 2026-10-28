@@ -80,14 +80,15 @@ struct DestinationPicker: View {
     @Environment(\.dismiss) private var dismiss
     @State private var query = ""
 
-    private var origin: City? { store.state.currentCity }
+    private var origin: Coordinate { store.currentCoordinate }
 
     private var options: [City] {
-        guard let origin else { return [] }
+        // Mid-route you can head back to where you started; at rest, not to where you already are.
+        let exclude = store.state.currentLeg.map { $0.to.id } ?? store.state.currentCity?.id
         return Cities.all
-            .filter { $0.id != origin.id }
+            .filter { $0.id != exclude }
             .filter { query.isEmpty || $0.name.localizedCaseInsensitiveContains(query) || $0.region.localizedCaseInsensitiveContains(query) }
-            .sorted { Geo.distanceKm(origin.coordinate, $0.coordinate) < Geo.distanceKm(origin.coordinate, $1.coordinate) }
+            .sorted { Geo.distanceKm(origin, $0.coordinate) < Geo.distanceKm(origin, $1.coordinate) }
     }
 
     var body: some View {
@@ -95,7 +96,7 @@ struct DestinationPicker: View {
             List(options) { city in
                 Button {
                     Task {
-                        await store.setDestination(city)
+                        await store.changeDestination(city)
                         dismiss()
                     }
                 } label: {
@@ -123,7 +124,7 @@ struct DestinationPicker: View {
     }
 
     private func row(_ city: City) -> some View {
-        let km = origin.map { Cities.estimatedKm(from: $0, to: city) } ?? 0
+        let km = Geo.distanceKm(origin, city.coordinate) * Cities.routeFactor
         let visited = store.state.cities.contains { $0.city.id == city.id }
         return HStack(spacing: 12) {
             Text(city.emoji).font(.title2)

@@ -58,6 +58,45 @@ enum Geo {
         }
     }
 
+    /// Initial compass bearing (0–360°) from a to b.
+    static func bearing(from a: Coordinate, to b: Coordinate) -> Double {
+        let p1 = a.lat * .pi / 180, p2 = b.lat * .pi / 180
+        let dl = (b.lon - a.lon) * .pi / 180
+        let y = sin(dl) * cos(p2)
+        let x = cos(p1) * sin(p2) - sin(p1) * cos(p2) * cos(dl)
+        let deg = atan2(y, x) * 180 / .pi
+        return (deg + 360).truncatingRemainder(dividingBy: 360)
+    }
+
+    /// The point `km` away from `a` along a compass bearing.
+    static func destination(from a: Coordinate, bearing: Double, km: Double) -> Coordinate {
+        let d = km / earthRadiusKm
+        let t = bearing * .pi / 180
+        let p1 = a.lat * .pi / 180, l1 = a.lon * .pi / 180
+        let p2 = asin(sin(p1) * cos(d) + cos(p1) * sin(d) * cos(t))
+        let l2 = l1 + atan2(sin(t) * sin(d) * cos(p1), cos(d) - sin(p1) * sin(p2))
+        return Coordinate(lat: p2 * 180 / .pi, lon: l2 * 180 / .pi)
+    }
+
+    /// Makes a run of exactly `km` from a route: trims it if it's too long, or turns
+    /// it into an out-and-back (and back again…) if it's too short.
+    static func fit(_ path: [Coordinate], toKm km: Double) -> [Coordinate] {
+        guard path.count >= 2, km > 0 else { return path }
+        var combined = path
+        var track = Track(combined)
+        guard track.totalKm > 0.001 else { return path }
+        var forward = false
+        var laps = 0
+        while track.totalKm < km - 1e-9, laps < 64 {
+            let leg = forward ? path : path.reversed()
+            combined += leg.dropFirst()
+            forward.toggle()
+            laps += 1
+            track = Track(combined)
+        }
+        return track.slice(fromKm: 0, toKm: km)
+    }
+
     /// Reduces a dense polyline to roughly `maxPoints` evenly spaced points, keeping both ends.
     static func thin(_ points: [Coordinate], maxPoints: Int) -> [Coordinate] {
         guard points.count > maxPoints, maxPoints >= 2 else { return points }

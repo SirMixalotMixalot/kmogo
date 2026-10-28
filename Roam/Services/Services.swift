@@ -78,6 +78,18 @@ enum PlaceNamer {
     }
 }
 
+extension PlaceNamer {
+    /// Street the runner is on ("King St W"), for the live run header.
+    static func street(at c: Coordinate) async -> String? {
+        let marks = try? await CLGeocoder().reverseGeocodeLocation(CLLocation(latitude: c.lat, longitude: c.lon))
+        guard let mark = marks?.first else { return nil }
+        if let street = mark.thoroughfare {
+            return mark.locality.map { "\(street), \($0)" } ?? street
+        }
+        return mark.locality ?? mark.name
+    }
+}
+
 // MARK: - Notifications
 
 enum Notifier {

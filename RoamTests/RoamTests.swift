@@ -36,6 +36,29 @@ final class GeoTests: XCTestCase {
         XCTAssertEqual(path.last!.lon, toronto.lon, accuracy: 1e-6)
     }
 
+    func testBearingAndDestinationRoundTrip() {
+        XCTAssertEqual(Geo.bearing(from: Coordinate(lat: 0, lon: 0), to: Coordinate(lat: 0, lon: 1)), 90, accuracy: 1e-6)
+        XCTAssertEqual(Geo.bearing(from: Coordinate(lat: 0, lon: 0), to: Coordinate(lat: 1, lon: 0)), 0, accuracy: 1e-6)
+        let d = Geo.destination(from: waterloo, bearing: 45, km: 5)
+        XCTAssertEqual(Geo.distanceKm(waterloo, d), 5, accuracy: 1e-6)
+        XCTAssertEqual(Geo.bearing(from: waterloo, to: d), 45, accuracy: 0.1)
+    }
+
+    func testFitTrimsLongRoutes() {
+        let path = [Coordinate(lat: 0, lon: 0), Coordinate(lat: 0, lon: 1)] // ~111 km
+        let fit = Geo.fit(path, toKm: 5)
+        XCTAssertEqual(Track(fit).totalKm, 5, accuracy: 1e-6)
+        XCTAssertEqual(fit.first, path.first)
+    }
+
+    func testFitMakesOutAndBackForShortRoutes() {
+        let path = [Coordinate(lat: 0, lon: 0), Coordinate(lat: 0, lon: 0.018)] // ~2 km
+        let fit = Geo.fit(path, toKm: 5)
+        XCTAssertEqual(Track(fit).totalKm, 5, accuracy: 1e-6)
+        // 2 km out, 2 km back, 1 km out again.
+        XCTAssertEqual(fit.last!.lon, 0.018 / 2, accuracy: 0.0005)
+    }
+
     func testThinKeepsEndsAndCapsCount() {
         let dense = (0...5000).map { Coordinate(lat: 0, lon: Double($0) * 0.001) }
         let thin = Geo.thin(dense, maxPoints: 200)
@@ -179,17 +202,17 @@ final class AppStoreTests: XCTestCase {
         XCTAssertEqual(store.state.runs.first!.distanceKm, 5, accuracy: 1e-9)
     }
 
-    func testLateJoinerFinishesWithGroup() {
+    func testLateJoinerFinishesWithGroup() async {
         let invite = GroupInvite(host: "Sam", start: now - 600, km: 5, paceSecPerKm: 360)
-        store.startGroupRun(invite)
+        await store.startGroupRun(invite)
         let run = store.state.activeRun!
-        XCTAssertEqual(run.endDate, invite.end)
+        XCTAssertEqual(run.realEndDate, invite.end)
         XCTAssertEqual(run.plannedKm, 5 * (1200.0 / 1800.0), accuracy: 1e-9)
         XCTAssertEqual(run.group?.host, "Sam")
     }
 
-    func testCannotJoinFinishedGroupRun() {
-        store.startGroupRun(GroupInvite(host: "Sam", start: now - 4000, km: 5, paceSecPerKm: 360))
+    func testCannotJoinFinishedGroupRun() async {
+        await store.startGroupRun(GroupInvite(host: "Sam", start: now - 4000, km: 5, paceSecPerKm: 360))
         XCTAssertNil(store.state.activeRun)
     }
 
@@ -211,6 +234,113 @@ final class AppStoreTests: XCTestCase {
         store.state.coins = 5000
         store.startRun(km: 5)
         XCTAssertFalse(store.canBuy(.bus))
+    }
+
+    // MARK: Explore runs
+
+    func testExploreRunMovesRunnerAndReroutesJourney() async {
+        let start = store.currentCoordinate
+        let route = Geo.fit([start, Geo.destination(from: start, bearing: 0, km: 20)], toKm: 5)
+        store.startExplore(route: route, km: 5)
+        XCTAssertEqual(store.state.activeRun?.kind, .explore)
+        now += 1800
+        store.tick()
+        await store.pendingWork?.value
+
+        let run = store.state.runs.first!
+        XCTAssertTrue(run.explore)
+        XCTAssertEqual(run.distanceKm, 5, accuracy: 1e-9)
+        XCTAssertEqual(run.routeLabel, "Waterloo → Guelph")
+        // Runner now stands where the run ended, 5 km north…
+        XCTAssertEqual(Geo.distanceKm(start, store.state.currentCity!.coordinate), 5, accuracy: 0.01)
+        XCTAssertTrue(store.state.currentCity!.id.hasPrefix("spot-"))
+        // …and the journey to Toronto re-routes from there, from scratch.
+        XCTAssertEqual(store.state.currentLeg?.to.id, "toronto")
+        XCTAssertEqual(store.state.currentLeg?.progressKm, 0)
+        XCTAssertEqual(store.state.currentLeg?.from.id, store.state.currentCity?.id)
+    }
+
+    func testExploreRunEndingAtACityCollectsIt() async {
+        let guelph = Cities.city(id: "guelph")!
+        let route = [store.currentCoordinate, guelph.coordinate]
+        let km = Track(route).totalKm
+        store.startExplore(route: route, km: km)
+        now += store.durationFor(km: km)
+        store.tick()
+        await store.pendingWork?.value
+        XCTAssertEqual(store.state.currentCity?.id, "guelph")
+        XCTAssertEqual(store.arrivedCity?.id, "guelph")
+        XCTAssertTrue(store.state.cities.contains { $0.id == "guelph" })
+        XCTAssertEqual(store.state.currentLeg?.from.id, "guelph") // still heading to Toronto
+    }
+
+    func testExploreWithoutDestinationJustMoves() async {
+        store.state.currentLeg = nil
+        let start = store.currentCoordinate
+        store.startExplore(route: Geo.fit([start, Geo.destination(from: start, bearing: 180, km: 10)], toKm: 3), km: 3)
+        now += 1080
+        store.tick()
+        await store.pendingWork?.value
+        XCTAssertNil(store.state.currentLeg)
+        XCTAssertEqual(Geo.distanceKm(start, store.currentCoordinate), 3, accuracy: 0.01)
+    }
+
+    func testChangeDestinationMidRouteStartsFromCurrentSpot() async {
+        store.buy(.bus) // 15 km in
+        let here = store.currentCoordinate
+        await store.changeDestination(Cities.city(id: "niagara")!)
+        XCTAssertEqual(store.state.currentLeg?.to.id, "niagara")
+        XCTAssertEqual(store.state.currentLeg!.from.coordinate.lat, here.lat, accuracy: 1e-9)
+        XCTAssertEqual(store.state.currentLeg?.progressKm, 0)
+    }
+
+    // MARK: Cheats
+
+    func testCheatCodeUnlocksWarpAndInstantFinish() {
+        XCTAssertFalse(store.redeem(code: "letmein"))
+        XCTAssertFalse(store.state.cheats.unlocked)
+        XCTAssertTrue(store.redeem(code: " roamfast "))
+        XCTAssertEqual(store.warp, 60)
+
+        store.startRun(km: 5)
+        let run = store.state.activeRun!
+        XCTAssertEqual(run.realEndDate.timeIntervalSince(run.startDate), 30, accuracy: 1e-9) // 30 min in 30 s
+        now += 15
+        XCTAssertEqual(run.distanceKm(at: now), 2.5, accuracy: 1e-9)
+        store.cheatFinishRun()
+        let record = store.state.runs.first!
+        XCTAssertTrue(record.completed)
+        XCTAssertEqual(record.duration, 1800, accuracy: 1e-9) // recorded as full study time
+        XCTAssertEqual(record.distanceKm, 5, accuracy: 1e-9)
+    }
+
+    func testWarpedRunCompletesOnTickAfterRealSeconds() {
+        store.redeem(code: "ROAMFAST")
+        store.state.cheats.warp = 300
+        store.startRun(km: 42.195)
+        now += 42.195 * 360 / 300 + 0.1
+        store.tick()
+        XCTAssertNil(store.state.activeRun)
+        XCTAssertEqual(store.state.runs.first!.duration, 42.195 * 360, accuracy: 0.01)
+    }
+
+    func testCheatsAreLockedByDefault() {
+        let coins = store.state.coins
+        store.cheatAddCoins()
+        store.startRun(km: 5)
+        store.cheatFinishRun()
+        XCTAssertEqual(store.state.coins, coins)
+        XCTAssertNotNil(store.state.activeRun)
+        XCTAssertEqual(store.state.activeRun?.warp, 1)
+    }
+
+    func testSampleRunsBackfillHistory() async {
+        store.redeem(code: "ROAMFAST")
+        await store.addSampleRuns()
+        XCTAssertEqual(store.state.runs.count, 4)
+        XCTAssertEqual(store.longestRun?.duration ?? 0, 80 * 360, accuracy: 1e-6)
+        XCTAssertLessThan(store.state.runs.map(\.startDate).max()!, now)
+        XCTAssertNil(store.state.activeRun)
     }
 
     func testStatePersistsToDisk() async throws {

@@ -109,6 +109,64 @@ struct SettingsView: View {
     @Environment(AppStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     @State private var confirmReset = false
+    @State private var code = ""
+    @State private var codeRejected = false
+    @State private var addingRuns = false
+
+    @ViewBuilder private var cheatSection: some View {
+        if store.state.cheats.unlocked {
+            Section {
+                Picker("Time warp", selection: Binding(
+                    get: { store.state.cheats.warp },
+                    set: { store.state.cheats.warp = $0 })) {
+                    Text("Off").tag(1.0)
+                    Text("10×").tag(10.0)
+                    Text("60×").tag(60.0)
+                    Text("300×").tag(300.0)
+                }
+                Button("+1,000 coins") { store.cheatAddCoins() }
+                Button("Teleport to destination") { store.cheatTeleport() }
+                    .disabled(store.state.currentLeg == nil || store.state.activeRun != nil)
+                Button {
+                    addingRuns = true
+                    Task {
+                        await store.addSampleRuns()
+                        addingRuns = false
+                    }
+                } label: {
+                    HStack {
+                        Text("Add a week of sample runs")
+                        if addingRuns { Spacer(); ProgressView() }
+                    }
+                }
+                .disabled(addingRuns || store.state.activeRun != nil)
+                Button("Disable cheats", role: .destructive) { store.state.cheats = Cheats() }
+            } header: {
+                Text("Cheats 🕹️")
+            } footer: {
+                Text("Time warp speeds up new solo runs (a 5K takes 30 s at 60×) but records the full study time. During a run, a Finish button completes it instantly.")
+            }
+        } else {
+            Section {
+                HStack {
+                    TextField("Enter code", text: $code)
+                        .textInputAutocapitalization(.characters)
+                        .autocorrectionDisabled()
+                        .onSubmit(redeem)
+                    Button("Redeem", action: redeem).disabled(code.isEmpty)
+                }
+            } header: {
+                Text("Cheat code")
+            } footer: {
+                if codeRejected { Text("Nice try. That's not it.").foregroundStyle(.red) }
+            }
+        }
+    }
+
+    private func redeem() {
+        codeRejected = !store.redeem(code: code)
+        if !codeRejected { code = "" }
+    }
 
     var body: some View {
         NavigationStack {
@@ -128,6 +186,7 @@ struct SettingsView: View {
                 } footer: {
                     Text("If you leave Roam for more than a minute during a run, your runner stops and the run ends.")
                 }
+                cheatSection
                 Section {
                     Button("Reset all progress", role: .destructive) { confirmReset = true }
                 }
