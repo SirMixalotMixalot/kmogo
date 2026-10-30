@@ -8,14 +8,25 @@ Inspired by FocusFlight, Forest, and YPT, with Strava-style share cards built fo
 
 | | |
 |---|---|
-| **Runs = study sessions** | Pick 5K, 10K, half marathon, marathon, or a custom session of up to 10 hours. The session length is distance × pace. |
-| **Real-world journey** | Choose a destination city. Roam fetches a real walking route from Apple Maps, or a driving route if walking fails, or a great-circle line as a last resort. Each run moves you along it. If you run past a city, the extra km carry over to your next leg. |
-| **Live run map** | A full-screen map shows your runner moving along the route in real time, with a countdown, distance, pace, and a follow-camera. The screen stays awake during a run, and you get a notification when you finish. |
+| **Runs = study sessions** | One-tap distance chips (1K, 3K, 5K, 10K, half, marathon) or a custom session of up to 10 hours. The session length is distance × pace. |
+| **Journey runs** | Choose a destination city. Roam fetches a real walking route from Apple Maps, or a driving route if walking fails, or a great-circle line as a last resort. Each journey run moves you along it, and extra km past a city carry over. You can change your destination mid-route. |
+| **Explore runs** | Tap anywhere on the zoomable setup map, or roll a random direction 🎲. Roam finds a real walking route and fits it to exactly your distance, trimming it or making it an out-and-back. Your runner stays where the run ends, finishing near a city collects it, and your journey re-routes from the new spot. |
+| **Live run view** | A 3D satellite follow-cam tracks your animated runner and turns with the road. A live **Look Around street-view** card updates as you move, the header shows the street you're on ("Now on King St W"), and you get toasts and haptics at every km split. You can switch to an overview or the standard map. The screen stays awake during a run, and you get a notification when you finish. |
 | **Focus tracking** | Roam counts every time you leave the app. **Strict mode** ends your run if you're away for more than 60 s, and you're only credited up to the moment you left. |
 | **Coins & shop** | You earn 10 coins per km, with a +20% bonus for finishing a run (half coins if you bail). Spend them on 🚌 bus (15 km), 🚆 train (60 km), or ✈️ plane (straight to your destination) tickets. |
 | **Group runs** | Create a run that starts in X minutes and share the `roam://` link. Everyone who opens it starts and finishes at the same moment. Late joiners run the remaining part. No server needed, because the link holds the whole session. |
 | **Share cards** | 1080×1920 PNGs for IG stories in three styles: **Route** (your trail shape on a gradient), **Map** (a dark map snapshot with your route), and **Sticker** (transparent, Strava-style, to paste over your own photo). Use Share or Copy. |
 | **Passport** | Collect cities. Towns you pass through are reverse-geocoded and added automatically. Includes your run history and lifetime stats. |
+
+## Cheat code 🕹️
+
+Go to Passport → ⚙️ Settings → **Cheat code**, enter `ROAMFAST`, and tap Redeem. This unlocks:
+
+- **Time warp** (10× / 60× / 300×) for new solo runs. At 60×, a 5K takes 30 s and an 8-hour ultra takes 8 minutes. The run is still recorded as the full study time.
+- A purple **Finish** button during runs that completes them instantly.
+- **+1,000 coins**, **Teleport to destination**, and **Add a week of sample runs**, which includes an 8-hour ultra for share-card testing.
+
+These cheats ship in every build right now. Remove them or gate them before a public release.
 
 ## Running it
 
@@ -31,7 +42,7 @@ Routing uses MapKit, so you don't need an API key. The simulator needs network a
 
 **Demo data (Debug builds only).** Add these launch arguments under Scheme → Run → Arguments:
 
-- `-demo`: seeds a profile, a real Waterloo → Montréal route, and four past runs, including an 8-hour "finals season" ultra
+- `-demo`: on a fresh install, seeds a profile, a real Waterloo → Montréal route, and four past runs, including an 8-hour "finals season" ultra
 - `-demoRun`: also starts a 5K immediately
 - `-demoSummary`: opens the share card for the 8-hour run
 - `-tab N`: opens tab N (0 Run, 1 Journey, 2 Shop, 3 Passport)

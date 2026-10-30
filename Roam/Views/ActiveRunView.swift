@@ -8,10 +8,16 @@ struct ActiveRunView: View {
 
     init(run: ActiveRun) {
         self.run = run
-        self.track = Track(run.route)
+        let track = Track(run.route)
+        self.track = track
+        // Start already locked onto the runner, so the map never reports a far-out "automatic" zoom.
+        let now = Date()
+        _camera = State(initialValue: .camera(MapCamera(centerCoordinate: run.coordinate(at: now, track: track).cl,
+                                                        distance: 650, heading: run.heading(at: now, track: track),
+                                                        pitch: 62)))
     }
 
-    @State private var camera: MapCameraPosition = .automatic
+    @State private var camera: MapCameraPosition
     @State private var follow = true
     @State private var followDistance: Double = 650
     @State private var satellite = true
@@ -167,7 +173,7 @@ struct ActiveRunView: View {
         .mapControls { MapCompass() }
         .onMapCameraChange(frequency: .onEnd) { ctx in
             // Remember the user's pinch-zoom level while following.
-            if follow { followDistance = min(max(ctx.camera.distance, 150), 30_000) }
+            if follow { followDistance = min(max(ctx.camera.distance, 150), 5_000) }
         }
     }
 
