@@ -18,6 +18,11 @@ struct ActiveRunView: View {
     }
 
     @State private var camera: MapCameraPosition
+
+    /// Marketing staging flags: `-cleanRun` hides all UI (map + runner only),
+    /// `-marketing` hides cheat-only UI.
+    private let cleanRun = ProcessInfo.processInfo.arguments.contains("-cleanRun")
+    private let marketing = ProcessInfo.processInfo.arguments.contains("-marketing")
     @State private var follow = true
     @State private var followDistance: Double = 650
     @State private var satellite = true
@@ -48,20 +53,7 @@ struct ActiveRunView: View {
                         .ignoresSafeArea()
                         .allowsHitTesting(false)
                 }
-                VStack(spacing: 10) {
-                    header
-                    if showStreetView { streetViewCard }
-                    Spacer()
-                    if let toast {
-                        Text(toast)
-                            .font(.headline)
-                            .padding(.horizontal, 16).padding(.vertical, 10)
-                            .background(Theme.orange, in: Capsule())
-                            .foregroundStyle(.white)
-                            .transition(.move(edge: .bottom).combined(with: .opacity))
-                    }
-                    panel(now: now)
-                }
+                if !cleanRun { overlays(now: now) }
             }
             .onChange(of: Int(now.timeIntervalSince1970)) { update(now: now) }
         }
@@ -81,6 +73,23 @@ struct ActiveRunView: View {
             Button("Keep running", role: .cancel) {}
         } message: {
             Text("You'll keep the distance you've covered, but only earn half the coins.")
+        }
+    }
+
+    private func overlays(now: Date) -> some View {
+        VStack(spacing: 10) {
+            header
+            if showStreetView { streetViewCard }
+            Spacer()
+            if let toast {
+                Text(toast)
+                    .font(.headline)
+                    .padding(.horizontal, 16).padding(.vertical, 10)
+                    .background(Theme.orange, in: Capsule())
+                    .foregroundStyle(.white)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+            panel(now: now)
         }
     }
 
@@ -258,7 +267,7 @@ struct ActiveRunView: View {
                     .contentTransition(.numericText(countsDown: true))
                 HStack(spacing: 6) {
                     Text("of focus left")
-                    if run.warp > 1 {
+                    if run.warp > 1, !marketing {
                         Text("⏩ \(Int(run.warp))× warp").font(.caption.bold()).foregroundStyle(Theme.orange)
                     }
                 }
@@ -284,7 +293,7 @@ struct ActiveRunView: View {
                     Text(fraction >= 1 ? "Finishing…" : "End run").frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
-                if store.state.cheats.unlocked {
+                if store.state.cheats.unlocked, !marketing {
                     Button {
                         store.cheatFinishRun()
                     } label: {

@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import UIKit
 
 /// Single source of truth for the game. All rules (distance credit, coins, arrivals,
 /// explore runs, strict mode, transit, cheats) live here so they can be unit tested.
@@ -467,17 +468,53 @@ final class AppStore {
     // MARK: - Demo data (DEBUG launch arguments: -demo, -demoRun, -demoSummary)
 
     #if DEBUG
+    /// Demo / marketing staging. Flags (all optional, fresh install only):
+    ///   -demo                 seed a profile (+ a week of sample runs toward Montréal)
+    ///   -demoHome <cityID>    start somewhere other than Waterloo
+    ///   -noSamples            skip the destination + sample runs
+    ///   -warp <n>             unlock cheats with an n× time warp
+    ///   -exportCards          write the longest run's share cards to Documents
+    ///   -demoSummary / -demoRun / -demoLobby   open those screens
+    ///   -demoExploreTo <lat,lon>   start a 5K explore run toward a point
     func seedDemoIfRequested() async {
         let args = ProcessInfo.processInfo.arguments
         guard args.contains("-demo"), state.profile == nil else { return }
-        completeOnboarding(name: "Patrick", home: Cities.waterloo, pace: 360)
-        await setDestination(Cities.city(id: "montreal")!)
-        let savedWarp = state.cheats
+        func value(_ flag: String) -> String? {
+            guard let i = args.firstIndex(of: flag), i + 1 < args.count else { return nil }
+            return args[i + 1]
+        }
+        let home = value("-demoHome").flatMap(Cities.city(id:)) ?? Cities.waterloo
+        completeOnboarding(name: "Patrick", home: home, pace: 360)
         state.cheats = Cheats(unlocked: false, warp: 1)
-        await addSampleRuns()
-        state.cheats = savedWarp
+        if !args.contains("-noSamples") {
+            await setDestination(Cities.city(id: "montreal")!)
+            await addSampleRuns()
+        }
+        if let w = value("-warp").flatMap(Double.init) {
+            state.cheats = Cheats(unlocked: true, warp: w)
+        }
+        if args.contains("-exportCards") { await exportShareCards() }
         if args.contains("-demoSummary") { finishedRunID = longestRun?.id }
         if args.contains("-demoRun") { startRun(km: 5) }
+        if args.contains("-demoLobby") { lobbyInvite = createInvite(km: 5, startsIn: 90) }
+        if let target = value("-demoExploreTo") {
+            let parts = target.split(separator: ",").compactMap { Double($0) }
+            if parts.count == 2 {
+                let raw = await rawRoute(to: Coordinate(lat: parts[0], lon: parts[1]))
+                startExplore(route: Geo.fit(raw, toKm: 5), km: 5)
+            }
+        }
+    }
+
+    /// Writes the longest run's share cards to Documents (for marketing assets).
+    private func exportShareCards() async {
+        guard let record = longestRun else { return }
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let map = await MapSnapshot.make(path: record.path, size: ShareCardView.size, accent: Theme.uiOrange)
+        for style in ShareStyle.allCases {
+            let image = ShareCardRenderer.render(record, style: style, mapImage: map)
+            try? image?.pngData()?.write(to: docs.appendingPathComponent("card-\(style.rawValue.lowercased()).png"))
+        }
     }
     #endif
 }

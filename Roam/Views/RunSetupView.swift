@@ -22,8 +22,15 @@ struct RunSetupView: View {
     @Environment(AppStore.self) private var store
     @State private var preset: RunPreset = .fiveK
     @State private var customMinutes: Double = 60
-    @State private var mode: SetupMode = .journey
-    @State private var target: ExploreTarget = .random
+    @State private var mode: SetupMode = ProcessInfo.processInfo.arguments.contains("-explore") ? .explore : .journey
+    @State private var target: ExploreTarget = {
+        // DEBUG staging: -exploreBearing <degrees> for a deterministic preview.
+        let args = ProcessInfo.processInfo.arguments
+        if let i = args.firstIndex(of: "-exploreBearing"), i + 1 < args.count, let b = Double(args[i + 1]) {
+            return .bearing(b)
+        }
+        return .random
+    }()
     @State private var rawRoute: [Coordinate] = []
     @State private var rawKey = ""
     @State private var preview: [Coordinate] = []
@@ -231,9 +238,7 @@ struct RunSetupView: View {
         if effectiveMode == .explore {
             HStack(alignment: .center, spacing: 10) {
                 Image(systemName: "hand.tap.fill").foregroundStyle(Theme.orange)
-                Text(isOutAndBack
-                     ? "Out-and-back: run to your pin and turn around to make \(Fmt.km(km, digits: 1)) km."
-                     : "Tap anywhere on the map to run there, or roll a random direction.")
+                Text(exploreHint)
                     .font(.subheadline).foregroundStyle(.secondary)
                 Spacer(minLength: 0)
                 Button {
@@ -247,6 +252,13 @@ struct RunSetupView: View {
             Text("Follow the road toward \(leg.to.name). Your runner picks up right where you left off.")
                 .font(.subheadline).foregroundStyle(.secondary)
         }
+    }
+
+    private var exploreHint: String {
+        guard isOutAndBack else { return "Tap anywhere on the map to run there, or roll a random direction." }
+        let distance = Fmt.km(km, digits: 1)
+        if case .point = target { return "Out-and-back: run to your pin and turn around to make \(distance) km." }
+        return "Out-and-back: head out this way and turn around to make \(distance) km."
     }
 
     // MARK: - Distance
