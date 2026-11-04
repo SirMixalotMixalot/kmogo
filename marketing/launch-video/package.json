@@ -1,0 +1,22 @@
+{
+  "name": "roam-launch-video",
+  "private": true,
+  "description": "Roam launch video, built with Remotion and cut to HEADLOCK by Luci Gang.",
+  "scripts": {
+    "studio": "remotion studio",
+    "render": "remotion render RoamLaunch out/roam-launch.mp4 --codec=h264 --crf=16",
+    "still": "remotion still RoamLaunch out/still.png",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.537",
+    "@remotion/google-fonts": "4.0.537",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "remotion": "4.0.537"
+  },
+  "devDependencies": {
+    "@types/react": "18.3.12",
+    "typescript": "5.6.3"
+  }
+}

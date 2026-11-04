@@ -3,3 +3,7 @@ xcuserdata/
 DerivedData/
 build/
 *.xcuserstate
+marketing/build/
+marketing/out/
+*.mp3
+__pycache__/

@@ -50,6 +50,26 @@ Routing uses MapKit, so you don't need an API key. The simulator needs network a
 Group-run links can be tested in the simulator with:
 `xcrun simctl openurl booted "roam://group?id=abc123&host=Sam&start=$(($(date +%s)+60))&km=5&pace=360"`
 
+## Launch video (Remotion)
+
+`marketing/launch-video/` is a [Remotion](https://www.remotion.dev) project that renders a 1080×1920, 30 fps launch video. It's cut to **HEADLOCK by Luci Gang**: bars 32–52, from the breakdown through the drop to the end of the next 16-bar phrase. Every cut and animation is placed on the song's bar/beat grid. All the footage is real app footage captured from the simulator.
+
+```sh
+# 1. Put your licensed copy of the song at marketing/launch-video/public/song.mp3
+# 2. (Re)generate the beat map (stdlib Python + ffmpeg)
+python3 marketing/analyze_song.py marketing/launch-video/public/song.mp3 marketing/launch-video/src/beats.json
+# 3. Capture app footage from a booted simulator (screenshots, 3D run clips, share cards)
+marketing/capture_assets.sh
+# 4. Preview / render
+cd marketing/launch-video && npm install
+npm run studio          # live preview with a scrubbable timeline
+npm run render          # → out/roam-launch.mp4
+```
+
+The song and the captured footage are gitignored. The edit itself is in `src/LaunchVideo.tsx` (scene → bars), and `src/timeline.ts` maps bars and beats to frames.
+
+Using a commercial song in a public post needs a license. Instagram and TikTok can also mute uploads that contain it. The alternative is to export without audio and add HEADLOCK from the platform's own music library: the cuts line up as long as the track starts at 0:59.1.
+
 ## Code map
 
 ```
