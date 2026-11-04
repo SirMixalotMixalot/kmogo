@@ -50,25 +50,32 @@ Routing uses MapKit, so you don't need an API key. The simulator needs network a
 Group-run links can be tested in the simulator with:
 `xcrun simctl openurl booted "roam://group?id=abc123&host=Sam&start=$(($(date +%s)+60))&km=5&pace=360"`
 
-## Launch video (Remotion)
+## Launch videos (Remotion)
 
-`marketing/launch-video/` is a [Remotion](https://www.remotion.dev) project that renders a 1080×1920, 30 fps launch video. It's cut to **HEADLOCK by Luci Gang**: bars 32–52, from the breakdown through the drop to the end of the next 16-bar phrase. Every cut and animation is placed on the song's bar/beat grid. All the footage is real app footage captured from the simulator.
+`marketing/launch-video/` is a [Remotion](https://www.remotion.dev) project with two 1080×1920, 30 fps launch videos. Both use the same real app footage. Every cut and animation sits on the song's bar/beat grid.
+
+| Composition | Song | Cut | Look |
+|---|---|---|---|
+| `RoamLaunch` | HEADLOCK by Luci Gang (130 BPM) | 0:59 → 1:38, 38.8 s. The breakdown, then the drop, then the 16-bar phrase | Kinetic type; R-O-A-M slams one letter per beat |
+| `RoamLaunchMollyTalk` | MOLLY TALK by ISOxo (150 BPM, half-time) | 0:22 → 0:56, 33.6 s. The build, the silent pre-drop bar, drop 1 | Uppercase; 3·2·1 countdown on the silent bar, then "GO."; red/cyan glitch on heavy hits |
 
 ```sh
-# 1. Put your licensed copy of the song at marketing/launch-video/public/song.mp3
-# 2. (Re)generate the beat map (stdlib Python + ffmpeg)
-python3 marketing/analyze_song.py marketing/launch-video/public/song.mp3 marketing/launch-video/src/beats.json
+# 1. Put your licensed copies of the songs in marketing/launch-video/public/
+#    as headlock.mp3 and molly-talk.mp3
+# 2. (Re)generate the beat maps (stdlib Python + ffmpeg; --bpm N forces a tempo)
+python3 marketing/analyze_song.py marketing/launch-video/public/headlock.mp3 marketing/launch-video/src/beats-headlock.json
+python3 marketing/analyze_song.py marketing/launch-video/public/molly-talk.mp3 marketing/launch-video/src/beats-molly.json
 # 3. Capture app footage from a booted simulator (screenshots, 3D run clips, share cards)
 marketing/capture_assets.sh
 # 4. Preview / render
 cd marketing/launch-video && npm install
-npm run studio          # live preview with a scrubbable timeline
-npm run render          # → out/roam-launch.mp4
+npm run studio            # live preview with a scrubbable timeline (both videos)
+npm run render            # → out/roam-launch.mp4 and out/roam-launch-molly-talk.mp4
 ```
 
-The song and the captured footage are gitignored. The edit itself is in `src/LaunchVideo.tsx` (scene → bars), and `src/timeline.ts` maps bars and beats to frames.
+Each video is a "cut" in `src/cuts.tsx`: the song, the bar it starts on, its length, a look, and a scene list laid out in bars. Adding a version for another song means analyzing it, picking the bars, and writing a new cut. The songs and captured footage are gitignored.
 
-Using a commercial song in a public post needs a license. Instagram and TikTok can also mute uploads that contain it. The alternative is to export without audio and add HEADLOCK from the platform's own music library: the cuts line up as long as the track starts at 0:59.1.
+Using commercial songs in public posts needs a license. Instagram and TikTok can also mute uploads that contain them. The alternative is to render without audio (`npx remotion render <id> out/silent.mp4 --muted`) and add the track from the platform's own music library: start HEADLOCK at 0:59.1 or MOLLY TALK at 0:22.4 and the cuts line up.
 
 ## Code map
 

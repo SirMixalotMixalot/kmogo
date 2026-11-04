@@ -9,12 +9,15 @@ import {
   Phone,
   RouteBackdrop,
   TapRipple,
-  useKick,
+  useGlitchFilter,
+  useHit,
+  useLook,
   usePop,
+  usePulse,
   useShake,
 } from "./components";
 import { C, fontFamily } from "./theme";
-import { beats_ } from "./timeline";
+import { useTimeline } from "./timeline";
 
 const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
 
@@ -42,36 +45,50 @@ const EXPLORE_TAP = { x: 252, y: 855 }; // screenshot px — the route's turnaro
 const STREET_CARD = { x: 45, y: 325, w: 990, h: 358 }; // run-clip px
 
 // ---------------------------------------------------------------------------
-// Cold open — the breakdown (4 bars): kinetic type over a blurred night city
+// Cold opens (4 bars before the drop)
 
-const coldLines: Part[][] = [
+/** Blurred night city behind the cold open. */
+const ColdBackground: React.FC<{ rush: number; darken?: number }> = ({ rush, darken = 0 }) => {
+  const frame = useCurrentFrame();
+  const { durationInFrames } = useVideoConfig();
+  const bgScale = interpolate(frame, [0, durationInFrames], [1.25, 1.45]) + rush * 0.35;
+  return (
+    <AbsoluteFill
+      style={{
+        transform: `scale(${bgScale})`,
+        filter: `blur(14px) brightness(${0.5 * (1 - darken)}) saturate(1.35)`,
+      }}
+    >
+      <OffthreadVideo src={asset.runClean} muted style={fill} />
+    </AbsoluteFill>
+  );
+};
+
+export const HEADLOCK_LINES: Part[][] = [
   [{ text: "finals", beat: 0 }, { text: "week.", beat: 2 }],
   [{ text: "8 hours", beat: 0, accent: true }, { text: "of studying.", beat: 2 }],
   [{ text: "what if it", beat: 0 }, { text: "actually", beat: 2 }],
   [{ text: "got you", beat: 0 }, { text: "somewhere?", beat: 2, accent: true }],
 ];
 
-export const ColdOpen: React.FC = () => {
+/** Kinetic type, one line per bar; the last beat rushes toward the camera. */
+export const ColdOpen: React.FC<{ lines?: Part[][] }> = ({ lines = HEADLOCK_LINES }) => {
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
-  // The last beat before the drop: everything rushes toward the camera.
-  const rushStart = beats_(15);
-  const rush = interpolate(frame, [rushStart, durationInFrames], [0, 1], clamp);
-  const bgScale = interpolate(frame, [0, durationInFrames], [1.25, 1.45]) + rush * 0.35;
+  const { beats: beats_ } = useTimeline();
+  const rush = interpolate(frame, [beats_(15), durationInFrames], [0, 1], clamp);
   return (
     <AbsoluteFill style={{ background: C.night }}>
-      <AbsoluteFill style={{ transform: `scale(${bgScale})`, filter: "blur(14px) brightness(0.5) saturate(1.35)" }}>
-        <OffthreadVideo src={asset.runClean} muted style={fill} />
-      </AbsoluteFill>
-      <GlowBackdrop y={50} strength={interpolate(frame, [beats_(12), durationInFrames], [0.25, 1.1], clamp)} />
-      {coldLines.map((parts, i) => (
+      <ColdBackground rush={rush} />
+      <GlowBackdrop base={false} y={50} strength={interpolate(frame, [beats_(12), durationInFrames], [0.25, 1.1], clamp)} />
+      {lines.map((parts, i) => (
         <Sequence key={i} from={beats_(i * 4)} durationInFrames={beats_((i + 1) * 4) - beats_(i * 4)} layout="none">
           <AbsoluteFill
             style={{
               justifyContent: "center",
-              transform: i === 3 ? `scale(${1 + rush * 0.6})` : undefined,
-              filter: i === 3 ? `blur(${rush * 14}px)` : undefined,
-              opacity: i === 3 ? 1 - rush * 0.7 : 1,
+              transform: i === lines.length - 1 ? `scale(${1 + rush * 0.6})` : undefined,
+              filter: i === lines.length - 1 ? `blur(${rush * 14}px)` : undefined,
+              opacity: i === lines.length - 1 ? 1 - rush * 0.7 : 1,
             }}
           >
             <Caption parts={parts} top={740} size={150} />
@@ -82,20 +99,104 @@ export const ColdOpen: React.FC = () => {
   );
 };
 
-// ---------------------------------------------------------------------------
-// The drop (2 bars): flash, shake, R-O-A-M slams one letter per beat
+export const MOLLY_LINES: Part[][] = [
+  [{ text: "it's 2am.", beat: 0 }, { text: "finals week.", beat: 2 }],
+  [{ text: "8 hours", beat: 0, accent: true }, { text: "to go.", beat: 2 }],
+  [{ text: "so make it", beat: 0 }, { text: "a race.", beat: 2, accent: true }],
+];
 
-export const Drop: React.FC = () => {
+/**
+ * Three bars of type, then the near-silent pre-drop bar becomes a race start:
+ * 3 · 2 · 1 on its first three beats, a held breath on the fourth.
+ */
+export const CountdownColdOpen: React.FC = () => {
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
-  const kick = useKick();
-  const shake = useShake(34, 16);
-  const bgScale = interpolate(frame, [0, durationInFrames], [1.22, 1.02]);
-  const icon = usePop(0, { damping: 11, stiffness: 200 });
+  const { beats: beats_ } = useTimeline();
+  const countdownStart = beats_(12);
+  const darken = interpolate(frame, [countdownStart - 4, countdownStart + 4], [0, 0.65], clamp);
   return (
-    <AbsoluteFill style={{ background: C.night, transform: shake }}>
+    <AbsoluteFill style={{ background: "#000" }}>
+      <ColdBackground rush={0} darken={darken} />
+      <GlowBackdrop base={false} y={50} strength={interpolate(frame, [0, countdownStart], [0.2, 0.7], clamp) * (1 - darken * 0.6)} />
+      {MOLLY_LINES.map((parts, i) => (
+        <Sequence key={i} from={beats_(i * 4)} durationInFrames={beats_((i + 1) * 4) - beats_(i * 4)} layout="none">
+          <AbsoluteFill style={{ justifyContent: "center" }}>
+            <Caption parts={parts} top={740} size={124} />
+          </AbsoluteFill>
+        </Sequence>
+      ))}
+      {["3", "2", "1"].map((n, i) => (
+        <Sequence key={n} from={beats_(12 + i)} durationInFrames={beats_(13 + i) - beats_(12 + i)} layout="none">
+          <CountNumber n={n} last={i === 2} />
+        </Sequence>
+      ))}
+      {/* The 4th beat: a held breath — a ring tightens toward the drop. */}
+      <Sequence from={beats_(15)} durationInFrames={durationInFrames - beats_(15)} layout="none">
+        <BreathRing />
+      </Sequence>
+    </AbsoluteFill>
+  );
+};
+
+const CountNumber: React.FC<{ n: string; last: boolean }> = ({ n, last }) => {
+  const s = usePop(0, { damping: 11, stiffness: 340, mass: 0.5 });
+  const frame = useCurrentFrame();
+  const { durationInFrames } = useVideoConfig();
+  const fade = interpolate(frame, [durationInFrames - 3, durationInFrames], [1, 0.0], clamp);
+  return (
+    <AbsoluteFill style={{ alignItems: "center", justifyContent: "center" }}>
+      <div
+        style={{
+          fontFamily,
+          fontWeight: 900,
+          fontSize: 620,
+          lineHeight: 1,
+          color: last ? C.orange : C.white,
+          opacity: interpolate(s, [0, 0.2], [0, 1], clamp) * fade,
+          transform: `scale(${interpolate(s, [0, 1], [2.4, 1])})`,
+          textShadow: `-10px 0 rgba(255,30,70,0.7), 10px 0 rgba(0,225,255,0.7), 0 20px 80px rgba(0,0,0,0.6)`,
+        }}
+      >
+        {n}
+      </div>
+      <Flash frames={5} color="rgba(255,255,255,0.25)" />
+    </AbsoluteFill>
+  );
+};
+
+const BreathRing: React.FC = () => {
+  const frame = useCurrentFrame();
+  const { durationInFrames } = useVideoConfig();
+  const t = interpolate(frame, [0, durationInFrames], [0, 1], clamp);
+  const size = interpolate(t, [0, 1], [1500, 120]);
+  return (
+    <AbsoluteFill style={{ alignItems: "center", justifyContent: "center" }}>
+      <div
+        style={{
+          width: size,
+          height: size,
+          borderRadius: 9999,
+          border: `${interpolate(t, [0, 1], [6, 26])}px solid ${C.orange}`,
+          opacity: interpolate(t, [0, 0.2, 1], [0, 0.9, 1]),
+          boxShadow: `0 0 ${60 * t}px ${C.orange}`,
+        }}
+      />
+    </AbsoluteFill>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Drops (2 bars)
+
+const DropBackground: React.FC<{ rate?: number }> = ({ rate = 1.4 }) => {
+  const frame = useCurrentFrame();
+  const { durationInFrames } = useVideoConfig();
+  const bgScale = interpolate(frame, [0, durationInFrames], [1.22, 1.02]);
+  return (
+    <>
       <AbsoluteFill style={{ transform: `scale(${bgScale})`, filter: "brightness(0.78) saturate(1.15)" }}>
-        <OffthreadVideo src={asset.runClean} trimBefore={8 * 30} playbackRate={1.4} muted style={fill} />
+        <OffthreadVideo src={asset.runClean} trimBefore={8 * 30} playbackRate={rate} muted style={fill} />
       </AbsoluteFill>
       <AbsoluteFill
         style={{
@@ -103,6 +204,35 @@ export const Drop: React.FC = () => {
             "radial-gradient(ellipse at 50% 44%, rgba(13,15,23,0.72) 0%, rgba(13,15,23,0.25) 45%, rgba(13,15,23,0) 70%), linear-gradient(180deg, rgba(13,15,23,0.55) 0%, rgba(13,15,23,0) 30%, rgba(13,15,23,0) 70%, rgba(13,15,23,0.7) 100%)",
         }}
       />
+    </>
+  );
+};
+
+const Tagline: React.FC<{ fromBeat: number }> = ({ fromBeat }) => {
+  const { beats: beats_ } = useTimeline();
+  return (
+    <Sequence from={beats_(fromBeat)} layout="none">
+      <Caption
+        top={1210}
+        size={84}
+        parts={[
+          { text: "study to run", beat: 0 },
+          { text: "across the world.", beat: 2, accent: true },
+        ]}
+      />
+    </Sequence>
+  );
+};
+
+/** HEADLOCK: flash, shake, R-O-A-M slams one letter per beat. */
+export const Drop: React.FC = () => {
+  const pulse = usePulse();
+  const shake = useShake(34, 16);
+  const { beats: beats_ } = useTimeline();
+  const icon = usePop(0, { damping: 11, stiffness: 200 });
+  return (
+    <AbsoluteFill style={{ background: C.night, transform: shake }}>
+      <DropBackground />
       <AbsoluteFill style={{ alignItems: "center", top: 520 }}>
         <Img
           src={asset.icon}
@@ -111,25 +241,16 @@ export const Drop: React.FC = () => {
             height: 210,
             borderRadius: 48,
             boxShadow: "0 30px 80px rgba(0,0,0,0.5)",
-            transform: `scale(${icon * (1 + kick * 0.05)}) rotate(${(1 - icon) * -20}deg)`,
+            transform: `scale(${icon * (1 + pulse * 0.05)}) rotate(${(1 - icon) * -20}deg)`,
           }}
         />
-        <div style={{ display: "flex", marginTop: 30, transform: `scale(${1 + kick * 0.04})` }}>
+        <div style={{ display: "flex", marginTop: 30, transform: `scale(${1 + pulse * 0.04})` }}>
           {"ROAM".split("").map((letter, i) => (
             <SlamLetter key={i} letter={letter} beat={i} />
           ))}
         </div>
       </AbsoluteFill>
-      <Sequence from={beats_(4)} layout="none">
-        <Caption
-          top={1210}
-          size={84}
-          parts={[
-            { text: "study to run", beat: 0 },
-            { text: "across the world.", beat: 2, accent: true },
-          ]}
-        />
-      </Sequence>
+      <Tagline fromBeat={4} />
       {[1, 2, 3].map((b) => (
         <Sequence key={b} from={beats_(b)} durationInFrames={8} layout="none">
           <Flash frames={6} color="rgba(255,255,255,0.35)" />
@@ -141,6 +262,7 @@ export const Drop: React.FC = () => {
 };
 
 const SlamLetter: React.FC<{ letter: string; beat: number }> = ({ letter, beat }) => {
+  const { beats: beats_ } = useTimeline();
   const s = usePop(beats_(beat), { damping: 10, stiffness: 320, mass: 0.6 });
   return (
     <div
@@ -163,6 +285,77 @@ const SlamLetter: React.FC<{ letter: string; beat: number }> = ({ letter, beat }
   );
 };
 
+/** MOLLY TALK: "GO." fills the frame on the drop, then ROAM slams in on beat 3. */
+export const GoDrop: React.FC = () => {
+  const frame = useCurrentFrame();
+  const { beats: beats_ } = useTimeline();
+  const pulse = usePulse();
+  const glitch = useGlitchFilter(1.4);
+  const shake = useShake(48, 18);
+  const go = usePop(0, { damping: 12, stiffness: 380, mass: 0.5 });
+  const goOut = interpolate(frame, [beats_(2) - 3, beats_(2) + 3], [0, 1], clamp);
+  const word = usePop(beats_(2), { damping: 11, stiffness: 300, mass: 0.6 });
+  const icon = usePop(beats_(2) + 2, { damping: 12, stiffness: 220 });
+  return (
+    <AbsoluteFill style={{ background: "#000", transform: shake }}>
+      <DropBackground rate={1.8} />
+      {/* GO. */}
+      <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", filter: glitch }}>
+        <div
+          style={{
+            fontFamily,
+            fontWeight: 900,
+            fontSize: 470,
+            lineHeight: 1,
+            letterSpacing: -6,
+            color: C.orange,
+            opacity: interpolate(go, [0, 0.15], [0, 1], clamp) * (1 - goOut),
+            transform: `scale(${interpolate(go, [0, 1], [2.6, 1], clamp) * (1 + goOut * 1.4)})`,
+            textShadow: "0 20px 90px rgba(0,0,0,0.7)",
+          }}
+        >
+          GO.
+        </div>
+      </AbsoluteFill>
+      {/* ROAM */}
+      <AbsoluteFill style={{ alignItems: "center", top: 560, filter: glitch }}>
+        <Img
+          src={asset.icon}
+          style={{
+            width: 200,
+            height: 200,
+            borderRadius: 46,
+            boxShadow: "0 30px 80px rgba(0,0,0,0.5)",
+            opacity: icon,
+            transform: `scale(${icon * (1 + pulse * 0.06)})`,
+          }}
+        />
+        <div
+          style={{
+            marginTop: 26,
+            fontFamily,
+            fontWeight: 900,
+            fontSize: 280,
+            lineHeight: 1,
+            letterSpacing: 8,
+            color: C.white,
+            opacity: interpolate(word, [0, 0.15], [0, 1], clamp),
+            transform: `scale(${interpolate(word, [0, 1], [3, 1], clamp) * (1 + pulse * 0.05)})`,
+            textShadow: "0 14px 60px rgba(0,0,0,0.65)",
+          }}
+        >
+          ROAM
+        </div>
+      </AbsoluteFill>
+      <Tagline fromBeat={4} />
+      <Sequence from={beats_(2)} durationInFrames={10} layout="none">
+        <Flash frames={8} color="rgba(255,255,255,0.7)" />
+      </Sequence>
+      <Flash frames={10} />
+    </AbsoluteFill>
+  );
+};
+
 // ---------------------------------------------------------------------------
 // Feature scenes: caption on top, phone below, entering on the bar line
 
@@ -180,9 +373,13 @@ export const FeatureScene: React.FC<{
 }> = ({ caption, enter = "up", tilt = 0, seed = 1, children, overlay, captionSize = 96 }) => {
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
-  const kick = useKick();
+  const pulse = usePulse();
+  const hit = useHit();
+  const { glitch } = useLook();
+  const glitchFilter = useGlitchFilter();
   const s = usePop(0, { damping: 15, stiffness: 150, mass: 0.8 });
   const drift = interpolate(frame, [0, durationInFrames], [1, 1.035]);
+  const punch = glitch ? 1 + hit * 0.035 : 1 + pulse * 0.012;
   const enterTransform = {
     up: `translateY(${(1 - s) * 1100}px)`,
     left: `translateX(${(1 - s) * -1000}px) rotate(${(1 - s) * -14}deg)`,
@@ -198,10 +395,9 @@ export const FeatureScene: React.FC<{
       <AbsoluteFill style={{ alignItems: "center", top: PHONE_TOP, perspective: 2400 }}>
         <div
           style={{
-            transform: `${enterTransform} scale(${drift * (1 + kick * 0.012)}) rotateY(${rotY}deg) rotateX(${
-              Math.abs(tilt) * 0.25
-            }deg)`,
+            transform: `${enterTransform} scale(${drift * punch}) rotateY(${rotY}deg) rotateX(${Math.abs(tilt) * 0.25}deg)`,
             opacity: interpolate(s, [0, 0.15], [0, 1], clamp),
+            filter: glitchFilter,
           }}
         >
           <Phone width={PHONE_W}>
@@ -219,6 +415,7 @@ const Screen: React.FC<{ name: string }> = ({ name }) => <Img src={asset.screen(
 /** Pulsing orange ring around a spot in a screenshot, beating on every beat. */
 const BeatRing: React.FC<{ rect: { x: number; y: number; w: number; h: number } }> = ({ rect }) => {
   const frame = useCurrentFrame();
+  const { beats: beats_ } = useTimeline();
   const beat = beats_(1);
   const phase = (frame % beat) / beat;
   const appear = interpolate(frame, [beats_(1), beats_(1) + 6], [0, 1], clamp);
@@ -253,34 +450,38 @@ export const DistanceScene: React.FC = () => (
   </FeatureScene>
 );
 
-export const LiveRunScene: React.FC = () => (
-  <AbsoluteFill>
-    <FeatureScene seed={3} enter="right" tilt={-16} caption={[]}>
-      <OffthreadVideo src={asset.runUi} trimBefore={30} playbackRate={1.3} muted style={fill} />
-    </FeatureScene>
-    <Sequence durationInFrames={beats_(4)} layout="none">
-      <Caption
-        parts={[
-          { text: "real streets.", beat: 0 },
-          { text: "in 3D.", beat: 2, accent: true },
-        ]}
-      />
-    </Sequence>
-    <Sequence from={beats_(4)} layout="none">
-      <Caption
-        parts={[
-          { text: "every minute you study", beat: 0 },
-          { text: "moves you.", beat: 2, accent: true },
-        ]}
-        size={88}
-      />
-    </Sequence>
-  </AbsoluteFill>
-);
+export const LiveRunScene: React.FC = () => {
+  const { beats: beats_ } = useTimeline();
+  return (
+    <AbsoluteFill>
+      <FeatureScene seed={3} enter="right" tilt={-16} caption={[]}>
+        <OffthreadVideo src={asset.runUi} trimBefore={30} playbackRate={1.3} muted style={fill} />
+      </FeatureScene>
+      <Sequence durationInFrames={beats_(4)} layout="none">
+        <Caption
+          parts={[
+            { text: "real streets.", beat: 0 },
+            { text: "in 3D.", beat: 2, accent: true },
+          ]}
+        />
+      </Sequence>
+      <Sequence from={beats_(4)} layout="none">
+        <Caption
+          parts={[
+            { text: "every minute you study", beat: 0 },
+            { text: "moves you.", beat: 2, accent: true },
+          ]}
+          size={88}
+        />
+      </Sequence>
+    </AbsoluteFill>
+  );
+};
 
 /** Zooms from the phone into the live street-view card. */
 export const StreetViewScene: React.FC = () => {
   const zoom = usePop(2, { damping: 18, stiffness: 120 });
+  const glitchFilter = useGlitchFilter(0.6);
   const z = interpolate(zoom, [0, 1], [1, 2.05]);
   const dropY = interpolate(zoom, [0, 1], [0, 240]);
   const cx = BEZEL + (STREET_CARD.x + STREET_CARD.w / 2) * CLIP_K;
@@ -289,14 +490,16 @@ export const StreetViewScene: React.FC = () => {
     <AbsoluteFill>
       <GlowBackdrop y={45} />
       <RouteBackdrop seed={4} />
-      <AbsoluteFill style={{ alignItems: "center", top: PHONE_TOP }}>
+      <AbsoluteFill style={{ alignItems: "center", top: PHONE_TOP, filter: glitchFilter }}>
         <div style={{ transform: `translateY(${dropY}px) scale(${z})`, transformOrigin: `${cx}px ${cy}px` }}>
           <Phone width={PHONE_W}>
             <OffthreadVideo src={asset.runUi} trimBefore={5 * 30} muted style={fill} />
           </Phone>
         </div>
       </AbsoluteFill>
-      <AbsoluteFill style={{ background: `linear-gradient(180deg, ${C.night} 0%, rgba(13,15,23,0.85) 22%, rgba(13,15,23,0) 34%)` }} />
+      <AbsoluteFill
+        style={{ background: `linear-gradient(180deg, ${C.night} 0%, rgba(13,15,23,0.85) 22%, rgba(13,15,23,0) 34%)` }}
+      />
       <Caption
         parts={[
           { text: "live street view", beat: 0 },
@@ -307,25 +510,28 @@ export const StreetViewScene: React.FC = () => {
   );
 };
 
-export const ExploreScene: React.FC = () => (
-  <FeatureScene
-    seed={5}
-    enter="left"
-    tilt={12}
-    caption={[
-      { text: "tap anywhere.", beat: 0 },
-      { text: "run there.", beat: 2, accent: true },
-    ]}
-    overlay={
-      <>
-        <TapRipple x={EXPLORE_TAP.x * SHOT_K} y={EXPLORE_TAP.y * SHOT_K} delay={beats_(0.5)} />
-        <TapRipple x={EXPLORE_TAP.x * SHOT_K} y={EXPLORE_TAP.y * SHOT_K} delay={beats_(2.5)} />
-      </>
-    }
-  >
-    <Screen name="explore" />
-  </FeatureScene>
-);
+export const ExploreScene: React.FC = () => {
+  const { beats: beats_ } = useTimeline();
+  return (
+    <FeatureScene
+      seed={5}
+      enter="left"
+      tilt={12}
+      caption={[
+        { text: "tap anywhere.", beat: 0 },
+        { text: "run there.", beat: 2, accent: true },
+      ]}
+      overlay={
+        <>
+          <TapRipple x={EXPLORE_TAP.x * SHOT_K} y={EXPLORE_TAP.y * SHOT_K} delay={beats_(0.5)} />
+          <TapRipple x={EXPLORE_TAP.x * SHOT_K} y={EXPLORE_TAP.y * SHOT_K} delay={beats_(2.5)} />
+        </>
+      }
+    >
+      <Screen name="explore" />
+    </FeatureScene>
+  );
+};
 
 export const JourneyScene: React.FC = () => (
   <FeatureScene
@@ -385,7 +591,7 @@ export const ShopScene: React.FC = () => (
 );
 
 // ---------------------------------------------------------------------------
-// Share cards (3 bars)
+// Share cards
 
 const CARD_ASPECT = 1920 / 1080;
 
@@ -414,7 +620,9 @@ export const CardsFanScene: React.FC = () => {
     { style: "sticker" as const, x: 300, rot: 11, y: 70, beat: 2 },
     { style: "route" as const, x: 0, rot: 0, y: 0, beat: 0 },
   ];
-  const kick = useKick();
+  const { beats: beats_ } = useTimeline();
+  const pulse = usePulse();
+  const glitchFilter = useGlitchFilter(0.8);
   const punch = usePop(beats_(3), { damping: 9, stiffness: 300 });
   return (
     <AbsoluteFill>
@@ -426,8 +634,8 @@ export const CardsFanScene: React.FC = () => {
           { text: "gets a run card.", beat: 2, accent: true },
         ]}
       />
-      <AbsoluteFill style={{ top: 560, alignItems: "center" }}>
-        <div style={{ position: "relative", width: 1, height: 1, transform: `scale(${1 + punch * 0.03 + kick * 0.01})` }}>
+      <AbsoluteFill style={{ top: 560, alignItems: "center", filter: glitchFilter }}>
+        <div style={{ position: "relative", width: 1, height: 1, transform: `scale(${1 + punch * 0.03 + pulse * 0.01})` }}>
           {layout.map((c) => (
             <FanCard key={c.style} {...c} />
           ))}
@@ -444,6 +652,7 @@ const FanCard: React.FC<{ style: "route" | "map" | "sticker"; x: number; rot: nu
   y,
   beat,
 }) => {
+  const { beats: beats_ } = useTimeline();
   const s = usePop(beats_(beat), { damping: 13, stiffness: 190 });
   const w = style === "route" ? 420 : 360;
   return (
@@ -464,6 +673,7 @@ const FanCard: React.FC<{ style: "route" | "map" | "sticker"; x: number; rot: nu
 export const CardHeroScene: React.FC = () => {
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
+  const glitchFilter = useGlitchFilter(0.8);
   const s = usePop(0, { damping: 16, stiffness: 140 });
   const w = interpolate(s, [0, 1], [420, 640]);
   const drift = interpolate(frame, [0, durationInFrames], [0, -40]);
@@ -478,7 +688,7 @@ export const CardHeroScene: React.FC = () => {
         ]}
         size={90}
       />
-      <AbsoluteFill style={{ alignItems: "center", top: 520 + drift }}>
+      <AbsoluteFill style={{ alignItems: "center", top: 520 + drift, filter: glitchFilter }}>
         <div style={{ transform: `rotate(${(1 - s) * -4}deg)` }}>
           <Card style="route" width={w} />
         </div>
@@ -497,7 +707,9 @@ export const StickerScene: React.FC = () => {
       <AbsoluteFill style={{ transform: `scale(${interpolate(frame, [0, durationInFrames], [1.15, 1.05])})` }}>
         <OffthreadVideo src={asset.runClean} trimBefore={16 * 30} muted style={fill} />
       </AbsoluteFill>
-      <AbsoluteFill style={{ background: "linear-gradient(180deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.35) 22%, rgba(0,0,0,0) 40%)" }} />
+      <AbsoluteFill
+        style={{ background: "linear-gradient(180deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.35) 22%, rgba(0,0,0,0) 40%)" }}
+      />
       <AbsoluteFill style={{ transform: `scale(${interpolate(s, [0, 1], [1.4, 0.94])})`, opacity: s }}>
         <Img src={asset.card("sticker")} style={fill} />
       </AbsoluteFill>
@@ -514,10 +726,11 @@ export const StickerScene: React.FC = () => {
 };
 
 // ---------------------------------------------------------------------------
-// End card (2 bars)
+// End card
 
 export const EndCard: React.FC = () => {
-  const kick = useKick();
+  const pulse = usePulse();
+  const { beats: beats_ } = useTimeline();
   const icon = usePop(0, { damping: 11, stiffness: 160 });
   const word = usePop(beats_(1), { damping: 13, stiffness: 180 });
   const tag = usePop(beats_(2), { damping: 16 });
@@ -534,7 +747,7 @@ export const EndCard: React.FC = () => {
             height: 300,
             borderRadius: 68,
             boxShadow: "0 40px 120px rgba(255,107,44,0.35), 0 30px 80px rgba(0,0,0,0.6)",
-            transform: `scale(${icon * (1 + kick * 0.04)})`,
+            transform: `scale(${icon * (1 + pulse * 0.04)})`,
           }}
         />
         <div

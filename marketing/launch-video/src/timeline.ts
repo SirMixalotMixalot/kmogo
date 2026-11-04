@@ -1,39 +1,67 @@
-import beats from "./beats.json";
+import { createContext, useContext } from "react";
 
 /**
- * Everything in the video is timed against the song, in bars and beats.
- *
- * `beats.json` comes from `marketing/analyze_song.py` (≈130 BPM). The cut we
- * use starts at song bar 32 — the breakdown where the kick drops out — so the
- * cold open plays over the tension and the logo lands on the drop four bars
- * later (song bar 36, ≈66.5 s).
+ * Everything in a video is timed against its song, in bars and beats.
+ * Beat maps come from `marketing/analyze_song.py`; each cut picks the song bar
+ * where the video starts and how many bars it runs.
  */
 export const FPS = 30;
-export const BPM = beats.bpm;
-export const BEAT_S = 60 / BPM;
-export const BAR_S = 4 * BEAT_S;
 
-const FIRST_SONG_BAR = 32;
-/** Song time (s) where the video starts. */
-export const SONG_START = beats.bars[FIRST_SONG_BAR];
-/** Frames of audio skipped at the start of the song. */
-export const AUDIO_TRIM = Math.round(SONG_START * FPS);
+export type Analysis = {
+  bpm: number;
+  bars: number[];
+  kickEnvelope: number[];
+  energyEnvelope: number[];
+  hitEnvelope?: number[];
+};
 
-/** Song time (s) → composition frame. */
-export const frameAtSong = (t: number) => Math.round(t * FPS) - AUDIO_TRIM;
-/** Start of video bar `v` (0 = breakdown, 4 = drop), as a song time. */
-export const barTime = (v: number) => SONG_START + v * BAR_S;
-/** Absolute frame of video bar `v`, beat `k` (k may be fractional). */
-export const beatFrame = (v: number, k = 0) => frameAtSong(barTime(v) + k * BEAT_S);
-export const barFrame = (v: number) => beatFrame(v, 0);
-/** Frames from a scene's start to its beat `k` (tempo is constant). */
-export const beats_ = (k: number) => Math.round(k * BEAT_S * FPS);
+/**
+ * `gridNudge` (s) shifts the whole beat grid; onset detection can land a hair after
+ * the true transient, so a cut can pull its grid onto the measured drop hit.
+ */
+export const makeTimeline = (analysis: Analysis, firstSongBar: number, totalBars: number, gridNudge = 0) => {
+  const BEAT_S = 60 / analysis.bpm;
+  const BAR_S = 4 * BEAT_S;
+  /** Song time (s) where the video starts. */
+  const SONG_START = analysis.bars[firstSongBar] + gridNudge;
+  /** Frames of audio skipped at the start of the song. */
+  const AUDIO_TRIM = Math.round(SONG_START * FPS);
+  /** Song time (s) → composition frame. */
+  const frameAtSong = (t: number) => Math.round(t * FPS) - AUDIO_TRIM;
+  /** Start of video bar `v` as a song time. */
+  const barTime = (v: number) => SONG_START + v * BAR_S;
+  /** Absolute frame of video bar `v`, beat `k` (k may be fractional). */
+  const beatFrame = (v: number, k = 0) => frameAtSong(barTime(v) + k * BEAT_S);
+  const barFrame = (v: number) => beatFrame(v, 0);
+  /** Frames from a scene's start to its beat `k` (tempo is constant). */
+  const beats = (k: number) => Math.round(k * BEAT_S * FPS);
+  const env = (arr: number[] | undefined, abs: number) => arr?.[abs + AUDIO_TRIM] ?? 0;
+  return {
+    bpm: analysis.bpm,
+    BEAT_S,
+    BAR_S,
+    SONG_START,
+    AUDIO_TRIM,
+    totalBars,
+    duration: barFrame(totalBars),
+    frameAtSong,
+    barTime,
+    beatFrame,
+    barFrame,
+    beats,
+    /** 0–1 kick-drum level (sustained bass included). */
+    kickAt: (abs: number) => env(analysis.kickEnvelope, abs),
+    /** 0–1 transient hits with fast decay (punches even over a sustained 808). */
+    hitAt: (abs: number) => env(analysis.hitEnvelope ?? analysis.kickEnvelope, abs),
+  };
+};
 
-export const DROP_BAR = 4;
-/** 4-bar cold open + the 16-bar phrase after the drop + 1 bar for the end card to breathe. */
-export const TOTAL_BARS = 21;
-export const DURATION = barFrame(TOTAL_BARS);
+export type Timeline = ReturnType<typeof makeTimeline>;
 
-/** 0–1 kick-drum envelope at an absolute frame — drives audio-reactive motion. */
-export const kickAt = (absFrame: number) => beats.kickEnvelope[absFrame + AUDIO_TRIM] ?? 0;
-export const energyAt = (absFrame: number) => beats.energyEnvelope[absFrame + AUDIO_TRIM] ?? 0;
+export const TimelineContext = createContext<Timeline | null>(null);
+
+export const useTimeline = (): Timeline => {
+  const t = useContext(TimelineContext);
+  if (!t) throw new Error("useTimeline() must be used inside a <LaunchVideo> cut");
+  return t;
+};

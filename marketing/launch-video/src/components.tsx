@@ -1,16 +1,49 @@
 import React, { createContext, useContext } from "react";
 import { AbsoluteFill, interpolate, random, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { C, fontFamily } from "./theme";
-import { beats_, kickAt } from "./timeline";
+import { useTimeline } from "./timeline";
 
 // ---------------------------------------------------------------------------
-// Timing helpers
+// Context: absolute frame + per-cut look
 
 /** Absolute composition frame (useCurrentFrame() is relative inside a Sequence). */
 export const AbsFrame = createContext(0);
 
-/** Kick-drum level right now, 0–1, for audio-reactive motion. */
-export const useKick = () => kickAt(useContext(AbsFrame));
+/** Visual personality of a cut. */
+export type Look = {
+  /** What drives glows and bumps: the kick level, or transient hits (better over sustained 808s). */
+  pulse: "kick" | "hit";
+  /** Uppercase captions. */
+  uppercase: boolean;
+  /** Red/cyan split and punch-zoom on heavy hits. */
+  glitch: boolean;
+};
+
+export const LookContext = createContext<Look>({ pulse: "kick", uppercase: false, glitch: false });
+export const useLook = () => useContext(LookContext);
+
+/** Transient hit level right now, 0–1. */
+export const useHit = () => {
+  const t = useTimeline();
+  return Math.min(1, t.hitAt(useContext(AbsFrame)) * 1.6);
+};
+
+/** Audio-reactive level for glows and bumps, 0–1. */
+export const usePulse = () => {
+  const t = useTimeline();
+  const abs = useContext(AbsFrame);
+  const hit = useHit();
+  return useLook().pulse === "hit" ? hit : t.kickAt(abs);
+};
+
+/** CSS filter that splits an element red/cyan on heavy hits (glitch looks only). */
+export const useGlitchFilter = (gain = 1): string | undefined => {
+  const hit = useHit();
+  const { glitch } = useLook();
+  if (!glitch || hit < 0.12) return undefined;
+  const x = 16 * hit * gain;
+  return `drop-shadow(${-x}px 0 rgba(255,30,70,0.8)) drop-shadow(${x}px 0 rgba(0,225,255,0.8))`;
+};
 
 /** Spring that starts `delay` frames into the current Sequence. */
 export const usePop = (delay: number, config: { damping?: number; stiffness?: number; mass?: number } = {}) => {
@@ -89,7 +122,10 @@ export const Caption: React.FC<{ parts: Part[]; top?: number; size?: number; ali
   size = 96,
   align = "center",
 }) => {
-  const kick = useKick();
+  const pulse = usePulse();
+  const hit = useHit();
+  const look = useLook();
+  const split = look.glitch && hit > 0.12 ? 7 * hit : 0;
   return (
     <div
       style={{
@@ -100,27 +136,31 @@ export const Caption: React.FC<{ parts: Part[]; top?: number; size?: number; ali
         textAlign: align,
         fontFamily,
         fontWeight: 900,
-        fontSize: size,
+        fontSize: look.uppercase ? size * 0.9 : size,
         lineHeight: 1.02,
-        letterSpacing: -1.5,
+        letterSpacing: look.uppercase ? 0 : -1.5,
+        textTransform: look.uppercase ? "uppercase" : "none",
         color: C.white,
-        textShadow: "0 8px 40px rgba(0,0,0,0.55)",
+        textShadow: split
+          ? `${-split}px 0 rgba(255,30,70,0.85), ${split}px 0 rgba(0,225,255,0.85), 0 8px 40px rgba(0,0,0,0.55)`
+          : "0 8px 40px rgba(0,0,0,0.55)",
       }}
     >
       {parts.map((p, i) => (
-        <CaptionLine key={i} part={p} kick={kick} />
+        <CaptionLine key={i} part={p} pulse={pulse} />
       ))}
     </div>
   );
 };
 
-const CaptionLine: React.FC<{ part: Part; kick: number }> = ({ part, kick }) => {
-  const s = usePop(beats_(part.beat), { damping: 12, stiffness: 220 });
+const CaptionLine: React.FC<{ part: Part; pulse: number }> = ({ part, pulse }) => {
+  const { beats } = useTimeline();
+  const s = usePop(beats(part.beat), { damping: 12, stiffness: 220 });
   return (
     <div
       style={{
         opacity: interpolate(s, [0, 0.4], [0, 1], clamp),
-        transform: `translateY(${(1 - s) * 60}px) scale(${0.85 + 0.15 * s + (part.accent ? kick * 0.03 : 0)})`,
+        transform: `translateY(${(1 - s) * 60}px) scale(${0.85 + 0.15 * s + (part.accent ? pulse * 0.03 : 0)})`,
         color: part.accent ? C.orange : C.white,
       }}
     >
@@ -132,16 +172,21 @@ const CaptionLine: React.FC<{ part: Part; kick: number }> = ({ part, kick }) => 
 // ---------------------------------------------------------------------------
 // Backgrounds
 
-/** Night gradient with an orange glow that breathes with the kick drum. */
-export const GlowBackdrop: React.FC<{ y?: number; strength?: number }> = ({ y = 62, strength = 1 }) => {
-  const kick = useKick();
-  const glow = (0.22 + kick * 0.28) * strength;
+/**
+ * Orange glow that breathes with the music, over the night gradient.
+ * `base={false}` draws only the glow, so footage underneath stays visible.
+ */
+export const GlowBackdrop: React.FC<{ y?: number; strength?: number; base?: boolean }> = ({
+  y = 62,
+  strength = 1,
+  base = true,
+}) => {
+  const pulse = usePulse();
+  const glow = (0.22 + pulse * 0.28) * strength;
+  const radial = `radial-gradient(circle at 50% ${y}%, rgba(255,107,44,${glow}) 0%, rgba(255,107,44,0) 55%)`;
   return (
     <AbsoluteFill
-      style={{
-        background: `radial-gradient(circle at 50% ${y}%, rgba(255,107,44,${glow}) 0%, rgba(255,107,44,0) 55%),
-                     linear-gradient(170deg, ${C.dusk} 0%, ${C.night} 60%)`,
-      }}
+      style={{ background: base ? `${radial}, linear-gradient(170deg, ${C.dusk} 0%, ${C.night} 60%)` : radial }}
     />
   );
 };

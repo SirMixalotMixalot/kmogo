@@ -1,11 +1,12 @@
 {
   "name": "roam-launch-video",
   "private": true,
-  "description": "Roam launch video, built with Remotion and cut to HEADLOCK by Luci Gang.",
+  "description": "Roam launch videos, built with Remotion and cut to HEADLOCK (Luci Gang) and MOLLY TALK (ISOxo).",
   "scripts": {
     "studio": "remotion studio",
-    "render": "remotion render RoamLaunch out/roam-launch.mp4 --codec=h264 --crf=16",
-    "still": "remotion still RoamLaunch out/still.png",
+    "render": "npm run render:headlock && npm run render:molly",
+    "render:headlock": "remotion render RoamLaunch out/roam-launch.mp4 --codec=h264 --crf=16",
+    "render:molly": "remotion render RoamLaunchMollyTalk out/roam-launch-molly-talk.mp4 --codec=h264 --crf=16",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

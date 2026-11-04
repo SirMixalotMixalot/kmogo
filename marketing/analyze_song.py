@@ -117,10 +117,25 @@ def main():
     for b, ph, sc in scored[:6]:
         print(f"  grid {b:7.2f} bpm  phase {ph / ENV_FPS:6.3f}s  score/beat {sc:.4f}")
 
-    # Prefer a musically sensible tempo: best score among 80–180 bpm.
-    sensible = [s for s in scored if 80 <= s[0] <= 180] or scored
-    bpm, _, _ = sensible[0]
-    phase, _ = best_phase(onset, bpm, step=0.25)
+    # Prefer a musically sensible tempo (80–180 bpm). But half-time tracks (trap,
+    # dubstep at 140–150) often score far better on a 70–75 bpm grid; when an
+    # out-of-range grid wins by a wide margin, double it instead of discarding it.
+    sensible = [s for s in scored if 80 <= s[0] <= 180]
+    best = scored[0]
+    if "--bpm" in sys.argv:
+        bpm = float(sys.argv[sys.argv.index("--bpm") + 1])
+        phase, _ = best_phase(onset, bpm, step=0.25)
+        print(f"tempo forced to {bpm} bpm")
+    elif sensible and (best in sensible or best[2] < 1.3 * sensible[0][2]):
+        bpm = sensible[0][0]
+        phase, _ = best_phase(onset, bpm, step=0.25)
+    else:
+        bpm = best[0]
+        phase, _ = best_phase(onset, bpm, step=0.25)
+        while bpm < 100:
+            bpm *= 2
+        phase %= ENV_FPS * 60 / bpm
+        print(f"half-time grid {best[0]:.2f} bpm wins clearly → using {bpm:.2f} bpm")
     period = ENV_FPS * 60 / bpm
     beats = []
     pos = phase
@@ -197,6 +212,19 @@ def main():
         frames = int(duration * VIDEO_FPS)
         return [round(sample_at(sig, f / VIDEO_FPS * ENV_FPS) / m, 3) for f in range(frames)]
 
+    # Transient "hit" envelope: kick onsets with a fast decay. Unlike the raw kick
+    # level it punches on every hit even when an 808 sustains underneath.
+    frames = int(duration * VIDEO_FPS)
+    raw_hits = []
+    for f in range(frames):
+        a, b = int(f / VIDEO_FPS * ENV_FPS), int((f + 1) / VIDEO_FPS * ENV_FPS) + 1
+        raw_hits.append(max(on_kick[a:b]) if a < len(on_kick) else 0.0)
+    ref = sorted(raw_hits)[int(len(raw_hits) * 0.98)] or 1
+    hit_env, level = [], 0.0
+    for v in raw_hits:
+        level = max(min(v / ref, 1.0), level * 0.72)
+        hit_env.append(round(level, 3))
+
     json.dump({
         "duration": round(duration, 3),
         "bpm": round(bpm, 3),
@@ -208,6 +236,7 @@ def main():
         "fps": VIDEO_FPS,
         "kickEnvelope": to_video(kick),
         "energyEnvelope": to_video(full),
+        "hitEnvelope": hit_env,
     }, open(out_path, "w"))
     print(f"\nwrote {out_path}: {len(beats)} beats, {len(bars)} bars, {len(hits)} kick hits")
 
