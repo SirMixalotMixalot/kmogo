@@ -1,1 +1,114 @@
-# kmogo
+# Roam
+
+**Study to run across the world.** Roam is a focus timer where every study session is a run on a real map. At your pace (default 6:00 /km), a 30-minute session is a 5K. Your runner moves along real Apple Maps routes as you study, so Waterloo → Toronto takes about a week of solid work and Toronto → Vancouver takes a whole term.
+
+Inspired by FocusFlight, Forest, and YPT, with Strava-style share cards built for Instagram stories.
+
+## Features
+
+| | |
+|---|---|
+| **Runs = study sessions** | One-tap distance chips (1K, 3K, 5K, 10K, half, marathon) or a custom session of up to 10 hours. The session length is distance × pace. |
+| **Journey runs** | Choose a destination city. Roam fetches a real walking route from Apple Maps, or a driving route if walking fails, or a great-circle line as a last resort. Each journey run moves you along it, and extra km past a city carry over. You can change your destination mid-route. |
+| **Explore runs** | Tap anywhere on the zoomable setup map, or roll a random direction 🎲. Roam finds a real walking route and fits it to exactly your distance, trimming it or making it an out-and-back. Your runner stays where the run ends, finishing near a city collects it, and your journey re-routes from the new spot. |
+| **Live run view** | A 3D satellite follow-cam tracks your animated runner and turns with the road. A live **Look Around street-view** card updates as you move, the header shows the street you're on ("Now on King St W"), and you get toasts and haptics at every km split. You can switch to an overview or the standard map. The screen stays awake during a run, and you get a notification when you finish. |
+| **Focus tracking** | Roam counts every time you leave the app. **Strict mode** ends your run if you're away for more than 60 s, and you're only credited up to the moment you left. |
+| **Coins & shop** | You earn 10 coins per km, with a +20% bonus for finishing a run (half coins if you bail). Spend them on 🚌 bus (15 km), 🚆 train (60 km), or ✈️ plane (straight to your destination) tickets. |
+| **Group runs** | Create a run that starts in X minutes and share the `roam://` link. Everyone who opens it starts and finishes at the same moment. Late joiners run the remaining part. No server needed, because the link holds the whole session. |
+| **Share cards** | 1080×1920 PNGs for IG stories in three styles: **Route** (your trail shape on a gradient), **Map** (a dark map snapshot with your route), and **Sticker** (transparent, Strava-style, to paste over your own photo). Use Share or Copy. |
+| **Passport** | Collect cities. Towns you pass through are reverse-geocoded and added automatically. Includes your run history and lifetime stats. |
+
+## Cheat code 🕹️
+
+Go to Passport → ⚙️ Settings → **Cheat code**, enter `ROAMFAST`, and tap Redeem. This unlocks:
+
+- **Time warp** (10× / 60× / 300×) for new solo runs. At 60×, a 5K takes 30 s and an 8-hour ultra takes 8 minutes. The run is still recorded as the full study time.
+- A purple **Finish** button during runs that completes them instantly.
+- **+1,000 coins**, **Teleport to destination**, and **Add a week of sample runs**, which includes an 8-hour ultra for share-card testing.
+
+These cheats ship in every build right now. Remove them or gate them before a public release.
+
+## Running it
+
+Requires Xcode 16+ (built with Xcode 27.2). The deployment target is iOS 17.
+
+```sh
+open Roam.xcodeproj        # then ⌘R on any iPhone simulator
+# or
+xcodebuild -project Roam.xcodeproj -scheme Roam -destination 'platform=iOS Simulator,name=iPhone 15 Pro' test
+```
+
+Routing uses MapKit, so you don't need an API key. The simulator needs network access to fetch routes.
+
+**Demo data (Debug builds only).** Add these launch arguments under Scheme → Run → Arguments:
+
+- `-demo`: on a fresh install, seeds a profile, a real Waterloo → Montréal route, and four past runs, including an 8-hour "finals season" ultra
+- `-demoRun`: also starts a 5K immediately
+- `-demoSummary`: opens the share card for the 8-hour run
+- `-tab N`: opens tab N (0 Run, 1 Journey, 2 Shop, 3 Passport)
+
+Group-run links can be tested in the simulator with:
+`xcrun simctl openurl booted "roam://group?id=abc123&host=Sam&start=$(($(date +%s)+60))&km=5&pace=360"`
+
+## Launch videos (Remotion)
+
+`marketing/launch-video/` is a [Remotion](https://www.remotion.dev) project with two 1080×1920, 30 fps launch videos. Both use the same real app footage. Every cut and animation sits on the song's bar/beat grid.
+
+| Composition | Song | Cut | Look |
+|---|---|---|---|
+| `RoamLaunch` | HEADLOCK by Luci Gang (130 BPM) | 0:59 → 1:38, 38.8 s. The breakdown, then the drop, then the 16-bar phrase | Kinetic type; R-O-A-M slams one letter per beat |
+| `RoamLaunchMollyTalk` | MOLLY TALK by ISOxo (150 BPM, half-time) | 0:22 → 0:56, 33.6 s. The build, the silent pre-drop bar, drop 1 | Uppercase; 3·2·1 countdown on the silent bar, then "GO."; red/cyan glitch on heavy hits |
+
+```sh
+# 1. Put your licensed copies of the songs in marketing/launch-video/public/
+#    as headlock.mp3 and molly-talk.mp3
+# 2. (Re)generate the beat maps (stdlib Python + ffmpeg; --bpm N forces a tempo)
+python3 marketing/analyze_song.py marketing/launch-video/public/headlock.mp3 marketing/launch-video/src/beats-headlock.json
+python3 marketing/analyze_song.py marketing/launch-video/public/molly-talk.mp3 marketing/launch-video/src/beats-molly.json
+# 3. Capture app footage from a booted simulator (screenshots, 3D run clips, share cards)
+marketing/capture_assets.sh
+# 4. Preview / render
+cd marketing/launch-video && npm install
+npm run studio            # live preview with a scrubbable timeline (both videos)
+npm run render            # → out/roam-launch.mp4 and out/roam-launch-molly-talk.mp4
+```
+
+Each video is a "cut" in `src/cuts.tsx`: the song, the bar it starts on, its length, a look, and a scene list laid out in bars. Adding a version for another song means analyzing it, picking the bars, and writing a new cut. The songs and captured footage are gitignored.
+
+Using commercial songs in public posts needs a license. Instagram and TikTok can also mute uploads that contain them. The alternative is to render without audio (`npx remotion render <id> out/silent.mp4 --muted`) and add the track from the platform's own music library: start HEADLOCK at 0:59.1 or MOLLY TALK at 0:22.4 and the cuts line up.
+
+## Code map
+
+```
+Roam/
+  RoamApp.swift            App entry, root navigation, full-screen run flow, shared components
+  Model/
+    Models.swift           City, Leg, RunRecord, ActiveRun, GroupInvite, Transit, GameState, formatting
+    AppStore.swift         All game rules (distance credit, coins, arrivals, strict mode, shop) + JSON persistence
+    Geo.swift              Haversine, great circles, polyline thinning, Track (position at km / slicing)
+    Cities.swift           Destination catalogue
+  Services/Services.swift  MapKit routing, reverse geocoding, notifications, map snapshots
+  Views/                   Onboarding, RunSetup, ActiveRun (+ group lobby), RunSummary, ShareCard, Journey, Shop, Passport
+RoamTests/                 Unit tests for geo math, invite links, and game rules
+```
+
+The state is a single `Codable` `GameState`. It's saved as JSON in Application Support after every change, and an in-progress run survives an app relaunch.
+
+## Next steps
+
+- **Live Activity / Dynamic Island** for the run timer (needs a widget extension target).
+- **Universal links** (`https://roam.app/g/...`) so invites are tappable inside Instagram DMs and other apps that block custom schemes.
+- **Backend for group runs** (CloudKit or Firebase) to show who's in the lobby and a live leaderboard.
+- **Direct "Share to Instagram Stories"** through the `instagram-stories://` pasteboard API. This needs a Meta app ID.
+- **Trails** (an AllTrails-style catalogue), more cities, and cosmetics for the runner.
+
+
+## App blocking
+
+Run setup and Settings include **Block distracting apps**. Grant individual Screen Time access, then choose apps, categories, or websites with Apple’s private picker. Selections persist on this device. Blocking applies to solo and group runs, and clears on completion, early exit, or reset. The RoamMonitor Device Activity extension clears restrictions at the scheduled finish even when Roam is suspended. If scheduling fails, Roam leaves apps available and shows an error.
+
+Enable Family Controls for both `com.roamstudy.Roam` and `com.roamstudy.Roam.Monitor` in your developer account and regenerate provisioning profiles. Both targets use `Config/Roam.entitlements`. Distribution requires Apple’s Family Controls approval for both identifiers: https://developer.apple.com/documentation/FamilyControls/requesting-the-family-controls-entitlement
+
+Validate on a signed physical iPhone: grant/deny access, choose apps and categories, complete a short and long run with Roam backgrounded, end a run early, relaunch during a run, and reset progress. Confirm shields disappear after each finish. Also check group runs and time-warp runs. Strict mode still ends runs after an absence of over 60 seconds when you return to Roam.
+
+**Simulator UI demo.** In the simulator, app blocking uses a clearly labeled demo permission prompt and a sample-app picker instead of calling Screen Time authorization. Enable the toggle, choose “Allow demo access,” select sample apps, and start a run to see the “Demo blocking active” badge. Ending the run clears that state. Demo access and sample selections reset when the app process restarts. No real apps are restricted; physical-device builds continue using Apple’s authorization and picker.

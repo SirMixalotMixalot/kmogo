@@ -1,0 +1,23 @@
+{
+  "name": "roam-launch-video",
+  "private": true,
+  "description": "Roam launch videos, built with Remotion and cut to HEADLOCK (Luci Gang) and MOLLY TALK (ISOxo).",
+  "scripts": {
+    "studio": "remotion studio",
+    "render": "npm run render:headlock && npm run render:molly",
+    "render:headlock": "remotion render RoamLaunch out/roam-launch.mp4 --codec=h264 --crf=16",
+    "render:molly": "remotion render RoamLaunchMollyTalk out/roam-launch-molly-talk.mp4 --codec=h264 --crf=16",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.537",
+    "@remotion/google-fonts": "4.0.537",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "remotion": "4.0.537"
+  },
+  "devDependencies": {
+    "@types/react": "18.3.12",
+    "typescript": "5.6.3"
+  }
+}

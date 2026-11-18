@@ -1,0 +1,32 @@
+name: Roam iOS Build
+
+on:
+  push:
+    branches: [MP2-Roam]
+  pull_request:
+    branches: [MP2-Roam]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Roam for iOS Simulator
+    runs-on: xcode-27
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build Roam
+        run: |
+          xcodebuild -version
+          xcodebuild build \
+            -project Roam.xcodeproj \
+            -scheme Roam \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO
