@@ -101,4 +101,14 @@ The state is a single `Codable` `GameState`. It's saved as JSON in Application S
 - **Backend for group runs** (CloudKit or Firebase) to show who's in the lobby and a live leaderboard.
 - **Direct "Share to Instagram Stories"** through the `instagram-stories://` pasteboard API. This needs a Meta app ID.
 - **Trails** (an AllTrails-style catalogue), more cities, and cosmetics for the runner.
-- **Screen Time / FamilyControls** app blocking during runs, for a stronger focus mode.
+
+
+## App blocking
+
+Run setup and Settings include **Block distracting apps**. Grant individual Screen Time access, then choose apps, categories, or websites with Apple’s private picker. Selections persist on this device. Blocking applies to solo and group runs, and clears on completion, early exit, or reset. The RoamMonitor Device Activity extension clears restrictions at the scheduled finish even when Roam is suspended. If scheduling fails, Roam leaves apps available and shows an error.
+
+Enable Family Controls for both `com.roamstudy.Roam` and `com.roamstudy.Roam.Monitor` in your developer account and regenerate provisioning profiles. Both targets use `Config/Roam.entitlements`. Distribution requires Apple’s Family Controls approval for both identifiers: https://developer.apple.com/documentation/FamilyControls/requesting-the-family-controls-entitlement
+
+Validate on a signed physical iPhone: grant/deny access, choose apps and categories, complete a short and long run with Roam backgrounded, end a run early, relaunch during a run, and reset progress. Confirm shields disappear after each finish. Also check group runs and time-warp runs. Strict mode still ends runs after an absence of over 60 seconds when you return to Roam.
+
+**Simulator UI demo.** In the simulator, app blocking uses a clearly labeled demo permission prompt and a sample-app picker instead of calling Screen Time authorization. Enable the toggle, choose “Allow demo access,” select sample apps, and start a run to see the “Demo blocking active” badge. Ending the run clears that state. Demo access and sample selections reset when the app process restarts. No real apps are restricted; physical-device builds continue using Apple’s authorization and picker.

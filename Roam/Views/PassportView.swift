@@ -186,6 +186,7 @@ struct SettingsView: View {
                 } footer: {
                     Text("If you leave Roam for more than a minute during a run, your runner stops and the run ends.")
                 }
+                Section("App blocking") { AppBlockingView() }
                 cheatSection
                 Section {
                     Button("Reset all progress", role: .destructive) { confirmReset = true }

@@ -17,6 +17,7 @@ final class AppStore {
     var finishedRunID: UUID?
     /// City reached during the last run or ticket ride.
     var arrivedCity: City?
+    var appBlocker: AppBlocker?
     var isRouting = false
     var isStartingGroup = false
 
@@ -92,6 +93,7 @@ final class AppStore {
     }
 
     func resetProgress() {
+        appBlocker?.stop()
         Notifier.cancel([Notifier.finishID, Notifier.strictID])
         state = GameState()
         lobbyInvite = nil
@@ -259,6 +261,7 @@ final class AppStore {
 
     private func begin(_ run: ActiveRun) {
         state.activeRun = run
+        appBlocker?.synchronize(until: run.realEndDate)
         arrivedCity = nil
         guard notificationsEnabled else { return }
         Notifier.schedule(id: Notifier.finishID, at: run.realEndDate,
@@ -302,6 +305,7 @@ final class AppStore {
                                completed: didComplete, groupHost: run.group?.host,
                                distractions: run.distractions, coins: coins, explore: run.kind == .explore)
 
+        appBlocker?.stop()
         state.activeRun = nil
         state.coins += coins
         state.runs.insert(record, at: 0)

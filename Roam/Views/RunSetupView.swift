@@ -72,6 +72,7 @@ struct RunSetupView: View {
                     }
                     modeHint
                     distancePicker
+                    AppBlockingView()
                     startButtons
                 }
                 .padding()

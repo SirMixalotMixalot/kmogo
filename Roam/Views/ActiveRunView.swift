@@ -79,6 +79,13 @@ struct ActiveRunView: View {
     private func overlays(now: Date) -> some View {
         VStack(spacing: 10) {
             header
+            #if targetEnvironment(simulator)
+            if let blocker = store.appBlocker, let end = blocker.demoBlockingUntil, end > now {
+                Label("Demo blocking active · \(blocker.demoApps.count) sample apps", systemImage: "hand.raised.fill")
+                    .font(.caption.bold()).padding(10)
+                    .background(.regularMaterial, in: Capsule())
+            }
+            #endif
             if showStreetView { streetViewCard }
             Spacer()
             if let toast {

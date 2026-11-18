@@ -24,6 +24,7 @@ enum Theme {
 }
 
 struct RootView: View {
+    @State private var blocker = AppBlocker.shared
     @Environment(AppStore.self) private var store
     @Environment(\.scenePhase) private var scenePhase
 
@@ -53,6 +54,11 @@ struct RootView: View {
             default: break
             }
         }
+        .alert("App blocking", isPresented: Binding(
+            get: { blocker.errorMessage != nil },
+            set: { if !$0 { blocker.errorMessage = nil } })) {
+                Button("OK") { blocker.errorMessage = nil }
+            } message: { Text(blocker.errorMessage ?? "") }
         .onOpenURL { url in
             guard let invite = GroupInvite(url: url), store.state.activeRun == nil,
                   store.state.profile != nil else { return }
@@ -64,6 +70,10 @@ struct RootView: View {
             await store.seedDemoIfRequested()
             #endif
             store.appDidBecomeActive()
+            if !RoamApp.isTesting {
+                store.appBlocker = .shared
+                store.appBlocker?.synchronize(until: store.state.activeRun?.realEndDate)
+            }
         }
     }
 }
