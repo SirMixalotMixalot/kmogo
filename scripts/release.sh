@@ -6,11 +6,12 @@
 #
 # Needs: Xcode signed in to the Apple ID on team X767SL92S7, and the app record
 # for com.roamstudy.Roam created in App Store Connect before the first upload.
-# The build number is the commit count, so every upload from a new commit is unique.
+# The build number is the Unix time, so it is unique and increasing across every
+# branch (commit counts collide between branches, and Apple rejects reused numbers).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-BUILD=$(git rev-list --count HEAD)
+BUILD=$(date +%s)
 OUT=build/release
 ARCHIVE="$OUT/Roam-$BUILD.xcarchive"
 rm -rf "$ARCHIVE"
