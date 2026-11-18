@@ -445,6 +445,7 @@
 				DEVELOPMENT_TEAM = X767SL92S7;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Config/Monitor-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Roam Monitor";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.roamstudy.Roam.Monitor;
@@ -465,6 +466,7 @@
 				DEVELOPMENT_TEAM = X767SL92S7;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Config/Monitor-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Roam Monitor";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.roamstudy.Roam.Monitor;
