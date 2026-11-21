@@ -27,7 +27,10 @@ final class AppStore {
     static let cityRadiusKm = 2.5
     static let cheatCode = "ROAMFAST"
 
-    @ObservationIgnored private let fileURL: URL?
+    private(set) var accountID: UUID?
+    @ObservationIgnored private let guestFileURL: URL?
+    @ObservationIgnored private var fileURL: URL?
+    @ObservationIgnored private var journeyVersion = UUID()
     @ObservationIgnored var routeProvider: (Coordinate, Coordinate) async -> RouteResult
     @ObservationIgnored var placeNamer: (Coordinate) async -> String?
     @ObservationIgnored var notificationsEnabled: Bool
@@ -46,6 +49,7 @@ final class AppStore {
          placeNamer: @escaping (Coordinate) async -> String? = PlaceNamer.locality,
          notificationsEnabled: Bool = true) {
         self.fileURL = fileURL
+        self.guestFileURL = fileURL
         self.routeProvider = routeProvider
         self.placeNamer = placeNamer
         self.notificationsEnabled = notificationsEnabled
@@ -66,11 +70,63 @@ final class AppStore {
         }
     }
 
+    /// Keep each signed-in account's journey separate from the guest journey.
+    /// Importing the guest journey is an explicit choice on the sign-in screen.
+    func useAccount(_ id: UUID?, importGuestProgress: Bool = false) throws {
+        guard accountID != id else { return }
+        let destination = id.flatMap { userID in
+            guestFileURL?.deletingLastPathComponent()
+                .appendingPathComponent("roam-account-\(userID.uuidString.lowercased()).json")
+        } ?? guestFileURL
+
+        let nextState: GameState
+        if let destination, FileManager.default.fileExists(atPath: destination.path) {
+            nextState = try JSONDecoder().decode(GameState.self, from: Data(contentsOf: destination))
+        } else if id != nil && accountID == nil && importGuestProgress {
+            nextState = state
+        } else {
+            nextState = GameState()
+        }
+
+        // Check that the new account's cache can be saved before leaving the current journey.
+        if let destination {
+            try JSONEncoder().encode(nextState).write(to: destination, options: .atomic)
+        }
+        pendingWork?.cancel()
+        pendingWork = nil
+        Notifier.cancel([Notifier.finishID, Notifier.strictID])
+        accountID = id
+        journeyVersion = UUID()
+        fileURL = destination
+        state = nextState
+        lobbyInvite = nil
+        finishedRunID = nil
+        arrivedCity = nil
+        isRouting = false
+        isStartingGroup = false
+        if let run = state.activeRun { begin(run) }
+        appDidBecomeActive()
+    }
+
     // MARK: - Derived stats
 
     var pace: Int { state.profile?.paceSecPerKm ?? 360 }
     var totalKm: Double { state.runs.reduce(0) { $0 + $1.distanceKm } }
     var totalStudyTime: TimeInterval { state.runs.reduce(0) { $0 + $1.duration } }
+    func progressSnapshot(userID: UUID, at now: Date) -> ProgressSnapshot {
+        let run = state.activeRun
+        let sampledAt = run?.backgroundedAt ?? now
+        let elapsed = run?.elapsed(at: sampledAt) ?? 0
+        let distance = run?.distanceKm(at: sampledAt) ?? 0
+        let coordinate = run.map { $0.coordinate(at: sampledAt, track: Track($0.route)) } ?? currentCoordinate
+        return ProgressSnapshot(
+            userID: userID,
+            studySeconds: Int64(max(0, totalStudyTime + elapsed).rounded(.down)),
+            virtualKm: totalKm + distance,
+            virtualLatitude: coordinate.lat,
+            virtualLongitude: coordinate.lon
+        )
+    }
     var longestRun: RunRecord? { state.runs.max { $0.duration < $1.duration } }
     var warp: Double { state.cheats.unlocked ? max(1, state.cheats.warp) : 1 }
 
@@ -94,6 +150,8 @@ final class AppStore {
 
     func resetProgress() {
         appBlocker?.stop()
+        journeyVersion = UUID()
+        pendingWork?.cancel()
         Notifier.cancel([Notifier.finishID, Notifier.strictID])
         state = GameState()
         lobbyInvite = nil
@@ -111,10 +169,11 @@ final class AppStore {
 
     func setDestination(_ city: City) async {
         guard state.currentLeg == nil, let origin = state.currentCity, origin.id != city.id else { return }
+        let version = journeyVersion
         isRouting = true
-        defer { isRouting = false }
+        defer { if journeyVersion == version { isRouting = false } }
         let route = await routeProvider(origin.coordinate, city.coordinate)
-        guard state.currentLeg == nil else { return }
+        guard journeyVersion == version, !Task.isCancelled, state.currentLeg == nil else { return }
         var leg = Leg(from: origin, to: city, path: route.path, totalKm: max(route.km, 0.01),
                       mode: route.mode, startedAt: clock())
         // Spend any distance banked from overshooting the previous city.
@@ -130,12 +189,15 @@ final class AppStore {
 
     /// Switch destination, even mid-route: the new route starts from where you are now.
     func changeDestination(_ city: City) async {
+        let version = journeyVersion
         if let leg = state.currentLeg {
             guard leg.to.id != city.id else { return }
             isRouting = true
             state.currentLeg = nil
             if leg.progressKm > 0.01 {
-                state.currentCity = await makeSpot(at: leg.currentCoordinate)
+                let spot = await makeSpot(at: leg.currentCoordinate)
+                guard journeyVersion == version, !Task.isCancelled else { return }
+                state.currentCity = spot
             }
         }
         await setDestination(city)
@@ -235,8 +297,9 @@ final class AppStore {
     /// Follows your journey if you have a destination, otherwise explores nearby.
     func startGroupRun(_ invite: GroupInvite) async {
         guard state.activeRun == nil, !isStartingGroup else { return }
+        let version = journeyVersion
         isStartingGroup = true
-        defer { isStartingGroup = false }
+        defer { if journeyVersion == version { isStartingGroup = false } }
         let start = max(clock(), invite.start)
         guard start < invite.end else { return }
         let km = invite.km * invite.end.timeIntervalSince(start) / invite.duration
@@ -252,7 +315,7 @@ final class AppStore {
             run = ActiveRun(kind: .explore, startDate: start, duration: 0, plannedKm: km,
                             paceSecPerKm: invite.paceSecPerKm, route: route, routeKm: Track(route).totalKm)
         }
-        guard state.activeRun == nil else { return }
+        guard journeyVersion == version, !Task.isCancelled, state.activeRun == nil else { return }
         run.duration = invite.end.timeIntervalSince(start)
         run.group = invite
         lobbyInvite = nil
@@ -327,10 +390,12 @@ final class AppStore {
 
     /// Reverse-geocodes a run's end (and optionally start), collecting new places.
     private func nameRun(_ id: UUID, start: Coordinate?, end: Coordinate) async -> String? {
+        let version = journeyVersion
         let endName = await placeNamer(end)
         var startName: String?
         if let start { startName = await placeNamer(start) }
-        guard let i = state.runs.firstIndex(where: { $0.id == id }) else { return endName }
+        guard journeyVersion == version, !Task.isCancelled,
+              let i = state.runs.firstIndex(where: { $0.id == id }) else { return endName }
         if let endName {
             state.runs[i].endPlace = endName
             if !state.places.contains(where: { $0.name == endName }) {
@@ -343,8 +408,9 @@ final class AppStore {
 
     /// After an explore run the runner stays where they finished; the journey re-routes from there.
     private func finishExplore(_ id: UUID, start: Coordinate?, end: Coordinate, moved: Bool) async {
+        let version = journeyVersion
         let endName = await nameRun(id, start: start, end: end)
-        guard moved else { return }
+        guard journeyVersion == version, !Task.isCancelled, moved else { return }
         let destination = state.currentLeg?.to
 
         if let city = nearbyCity(end) {
@@ -357,7 +423,9 @@ final class AppStore {
             state.currentCity = city
         } else {
             state.currentLeg = nil
-            state.currentCity = await makeSpot(at: end, name: endName)
+            let spot = await makeSpot(at: end, name: endName)
+            guard journeyVersion == version, !Task.isCancelled else { return }
+            state.currentCity = spot
         }
         if let destination, destination.id != state.currentCity?.id {
             await setDestination(destination)
