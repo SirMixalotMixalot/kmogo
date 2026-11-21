@@ -23,7 +23,7 @@ struct FriendsView: View {
                     }
                 } else {
                     if let profile = account.profile {
-                        Section("Your friend code") {
+                        Section {
                             Text(profile.inviteCode.uuidString.lowercased())
                                 .font(.footnote.monospaced()).textSelection(.enabled)
                             ShareLink("Share friend code", item: profile.inviteCode.uuidString.lowercased())
@@ -32,6 +32,8 @@ struct FriendsView: View {
                                 set: { enabled in Task { await account.setSharing(enabled, store: store) } }
                             ))
                             .disabled(account.isBusy)
+                        } header: {
+                            Text("Your friend code")
                         } footer: {
                             Text("Shares your virtual map position, study time, and virtual distance. Updates while Roam is open.")
                         }
