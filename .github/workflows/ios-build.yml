@@ -2,9 +2,9 @@ name: Roam iOS Build
 
 on:
   push:
-    branches: [MP2-Roam]
+    branches: [MP2-Roam, bk/login]
   pull_request:
-    branches: [MP2-Roam]
+    branches: [main, MP2-Roam]
   workflow_dispatch:
 
 permissions:
