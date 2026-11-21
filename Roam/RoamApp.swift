@@ -4,6 +4,7 @@ import SwiftUI
 struct RoamApp: App {
     @State private var store = AppStore(fileURL: RoamApp.isTesting ? nil : AppStore.defaultURL,
                                         notificationsEnabled: !RoamApp.isTesting)
+    @State private var account = AccountStore()
 
     static var isTesting: Bool { ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil }
 
@@ -11,6 +12,7 @@ struct RoamApp: App {
         WindowGroup {
             RootView()
                 .environment(store)
+                .environment(account)
                 .tint(Theme.orange)
         }
     }
@@ -25,6 +27,7 @@ enum Theme {
 
 struct RootView: View {
     @Environment(AppStore.self) private var store
+    @Environment(AccountStore.self) private var account
     @Environment(\.scenePhase) private var scenePhase
 
     private var showFlow: Binding<Bool> {
@@ -36,7 +39,17 @@ struct RootView: View {
 
     var body: some View {
         Group {
-            if store.state.profile == nil {
+            if let message = account.journeyError {
+                ContentUnavailableView {
+                    Label("Couldn’t open your journey", systemImage: "externaldrive.badge.exclamationmark")
+                } description: {
+                    Text(message)
+                } actions: {
+                    Button("Try again") { Task { await account.retryJourney(store: store) } }
+                }
+            } else if account.isRestoring && !RoamApp.isTesting {
+                ProgressView("Opening Roam…")
+            } else if store.state.profile == nil {
                 OnboardingView()
             } else {
                 MainTabs()
@@ -64,6 +77,24 @@ struct RootView: View {
             await store.seedDemoIfRequested()
             #endif
             store.appDidBecomeActive()
+        }
+        .task {
+            guard !RoamApp.isTesting else { return }
+            await account.observeAuth(store: store)
+        }
+        .task(id: scenePhase) {
+            guard scenePhase == .active, !RoamApp.isTesting else { return }
+            while !Task.isCancelled {
+                await account.refresh(store: store)
+                do { try await Task.sleep(for: .seconds(15)) }
+                catch { break }
+            }
+        }
+        .onChange(of: store.state.profile?.name) { _, _ in
+            Task { await account.refresh(store: store) }
+        }
+        .onChange(of: store.state.runs.count) { _, _ in
+            Task { await account.refresh(store: store) }
         }
     }
 }
@@ -110,6 +141,8 @@ struct MainTabs: View {
                 .tabItem { Label("Shop", systemImage: "ticket.fill") }.tag(2)
             PassportView()
                 .tabItem { Label("Passport", systemImage: "person.crop.square.filled.and.at.rectangle") }.tag(3)
+            FriendsView()
+                .tabItem { Label("Friends", systemImage: "person.2.fill") }.tag(4)
         }
     }
 }

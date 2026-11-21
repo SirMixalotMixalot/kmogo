@@ -17,6 +17,7 @@ Inspired by FocusFlight, Forest, and YPT, with Strava-style share cards built fo
 | **Group runs** | Create a run that starts in X minutes and share the `roam://` link. Everyone who opens it starts and finishes at the same moment. Late joiners run the remaining part. No server needed, because the link holds the whole session. |
 | **Share cards** | 1080×1920 PNGs for IG stories in three styles: **Route** (your trail shape on a gradient), **Map** (a dark map snapshot with your route), and **Sticker** (transparent, Strava-style, to paste over your own photo). Use Share or Copy. |
 | **Passport** | Collect cities. Towns you pass through are reverse-geocoded and added automatically. Includes your run history and lifetime stats. |
+| **Accounts & friends** | Email accounts, friend codes, requests, and opt-in sharing of virtual positions and study progress through Supabase. Friends appear on the Friends and Journey maps. |
 
 ## Cheat code 🕹️
 
@@ -30,7 +31,7 @@ These cheats ship in every build right now. Remove them or gate them before a pu
 
 ## Running it
 
-Requires Xcode 16+ (built with Xcode 27.2). The deployment target is iOS 17.
+Requires Xcode with Swift 6.1 or later (CI uses Xcode 27). The deployment target is iOS 17.
 
 ```sh
 open Roam.xcodeproj        # then ⌘R on any iPhone simulator
@@ -45,7 +46,21 @@ Routing uses MapKit, so you don't need an API key. The simulator needs network a
 - `-demo`: on a fresh install, seeds a profile, a real Waterloo → Montréal route, and four past runs, including an 8-hour "finals season" ultra
 - `-demoRun`: also starts a 5K immediately
 - `-demoSummary`: opens the share card for the 8-hour run
-- `-tab N`: opens tab N (0 Run, 1 Journey, 2 Shop, 3 Passport)
+- `-tab N`: opens tab N (0 Run, 1 Journey, 2 Shop, 3 Passport, 4 Friends)
+
+## Accounts and friends
+
+Open Passport → Account or Friends → Account to create an email account. Confirm the email, then sign in. A profile is created on the first authenticated connection. New accounts start with progress sharing off.
+
+Backend.swift contains the `roam-dev` project URL and publishable client key. Supabase manages session persistence in Keychain and token refresh. Row Level Security and authenticated database functions enforce access to profiles, friendships, and progress.
+
+To test with two people, exchange codes in Friends, send and accept a request, then enable sharing. The Friends and Journey maps show the shared virtual position. The app refreshes while foregrounded every 15 seconds, and publishes study totals and the active virtual run position. Pull down on Friends to refresh manually.
+
+Each account has a separate journey file on the device. At sign-in, the optional guest import copies the guest journey only when that account has no existing local journey. Whole-journey transfer between devices and iPhone/macOS sync remain future work. Shared progress is the latest snapshot published by a signed-in device.
+
+Supabase's default email sender delivers confirmation emails to organization team members only. For other testers, configure a custom SMTP provider under Authentication → Emails. See [Supabase SMTP setup](https://supabase.com/docs/guides/auth/auth-smtp). Confirming the email in a browser is sufficient, then return to the app to sign in.
+
+Pushes and pull requests run the simulator build check. A manual run of **Roam iOS Build** also runs the unit tests, including account cache isolation and virtual progress snapshots.
 
 Group-run links can be tested in the simulator with:
 `xcrun simctl openurl booted "roam://group?id=abc123&host=Sam&start=$(($(date +%s)+60))&km=5&pace=360"`

@@ -5,6 +5,7 @@ on:
     branches: [MP2-Roam]
   pull_request:
     branches: [MP2-Roam]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -29,4 +30,23 @@ jobs:
             -scheme Roam \
             -configuration Debug \
             -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Run unit tests on a simulator
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          SIMULATOR_ID=$(xcrun simctl list devices available -j | python3 -c '
+          import json
+          import sys
+          devices = json.load(sys.stdin)["devices"]
+          iphones = [device for runtime in devices.values() for device in runtime
+                     if device["name"].startswith("iPhone")]
+          print(iphones[0]["udid"])
+          ')
+          xcodebuild test \
+            -project Roam.xcodeproj \
+            -scheme Roam \
+            -configuration Debug \
+            -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
+            -parallel-testing-enabled NO \
             CODE_SIGNING_ALLOWED=NO
