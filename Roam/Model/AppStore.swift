@@ -94,7 +94,7 @@ final class AppStore {
         }
         pendingWork?.cancel()
         pendingWork = nil
-        Notifier.cancel([Notifier.finishID, Notifier.strictID])
+        if notificationsEnabled { Notifier.cancel([Notifier.finishID, Notifier.strictID]) }
         accountID = id
         journeyVersion = UUID()
         fileURL = destination
@@ -152,7 +152,10 @@ final class AppStore {
         appBlocker?.stop()
         journeyVersion = UUID()
         pendingWork?.cancel()
-        Notifier.cancel([Notifier.finishID, Notifier.strictID])
+        pendingWork = nil
+        isRouting = false
+        isStartingGroup = false
+        if notificationsEnabled { Notifier.cancel([Notifier.finishID, Notifier.strictID]) }
         state = GameState()
         lobbyInvite = nil
         finishedRunID = nil

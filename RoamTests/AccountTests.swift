@@ -101,6 +101,29 @@ final class AccountJourneyTests: XCTestCase {
         let backgrounded = store.progressSnapshot(userID: userID, at: start.addingTimeInterval(900))
         XCTAssertEqual(backgrounded, active)
     }
+
+    func testResetWhileRoutingClearsLoadingAndDiscardsTheOldRoute() async {
+        let started = expectation(description: "Route requested")
+        var continuation: CheckedContinuation<RouteResult, Never>?
+        store.completeOnboarding(name: "Runner", home: Cities.waterloo, pace: 360)
+        store.routeProvider = { _, _ in
+            await withCheckedContinuation {
+                continuation = $0
+                started.fulfill()
+            }
+        }
+        let destination = Cities.city(id: "guelph")!
+        let task = Task { await store.setDestination(destination) }
+        await fulfillment(of: [started], timeout: 2)
+        store.resetProgress()
+        XCTAssertFalse(store.isRouting)
+        continuation?.resume(returning: RouteResult(
+            path: [Cities.waterloo.coordinate, destination.coordinate], km: 50, mode: .road
+        ))
+        await task.value
+        XCTAssertNil(store.state.currentLeg)
+        XCTAssertNil(store.state.profile)
+    }
 }
 
 final class FriendDecodingTests: XCTestCase {
