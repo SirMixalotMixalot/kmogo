@@ -2,6 +2,7 @@ import SwiftUI
 
 struct OnboardingView: View {
     @Environment(AppStore.self) private var store
+    @Environment(AccountStore.self) private var account
     @State private var name = ""
     @State private var homeID = Cities.waterloo.id
     @State private var pace = 360
@@ -56,6 +57,9 @@ struct OnboardingView: View {
                     .buttonStyle(.borderedProminent)
                     .listRowBackground(Color.clear)
                 }
+            }
+            .onChange(of: account.profile?.displayName, initial: true) { _, displayName in
+                if name.isEmpty, let displayName { name = displayName }
             }
         }
     }

@@ -2,13 +2,20 @@ import SwiftUI
 
 struct PassportView: View {
     @Environment(AppStore.self) private var store
+    @Environment(AccountStore.self) private var account
     @State private var selected: RunRecord?
     @State private var showSettings = false
 
     var body: some View {
         NavigationStack {
             List {
-                Section { profileHeader }
+                Section {
+                    profileHeader
+                    NavigationLink { AccountView() } label: {
+                        Label(account.session == nil ? "Sign in or create an account" : "Account",
+                              systemImage: "person.crop.circle")
+                    }
+                }
 
                 Section("Cities collected · \(store.state.cities.count)/\(Cities.all.count)") {
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 14) {

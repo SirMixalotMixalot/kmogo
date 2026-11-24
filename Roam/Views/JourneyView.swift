@@ -3,6 +3,7 @@ import MapKit
 
 struct JourneyView: View {
     @Environment(AppStore.self) private var store
+    @Environment(AccountStore.self) private var account
     @State private var showDestinations = false
 
     var body: some View {
@@ -47,6 +48,12 @@ struct JourneyView: View {
                 }
             }
             Annotation("You", coordinate: store.currentCoordinate.cl) { RunnerDot(size: 30) }
+            ForEach(account.friends) { friend in
+                if let coordinate = friend.coordinate {
+                    Marker("\(friend.displayName) · virtual", systemImage: "person.fill", coordinate: coordinate.cl)
+                        .tint(.blue)
+                }
+            }
         }
         .mapStyle(.standard(elevation: .realistic, pointsOfInterest: .excludingAll))
         .id(store.state.currentLeg?.id) // re-fit the camera when the leg changes
