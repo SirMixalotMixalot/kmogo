@@ -33,14 +33,19 @@ struct RootView: View {
 
     private var showFlow: Binding<Bool> {
         Binding(
-            get: { store.state.activeRun != nil || store.finishedRunID != nil || store.lobbyInvite != nil },
+            get: { !account.isOpeningRecoveryLink && !account.isRecoveringPassword
+                && (store.state.activeRun != nil || store.finishedRunID != nil || store.lobbyInvite != nil) },
             set: { if !$0 { store.finishedRunID = nil; store.lobbyInvite = nil } }
         )
     }
 
     var body: some View {
         Group {
-            if let message = account.journeyError {
+            if account.isOpeningRecoveryLink {
+                ProgressView("Verifying reset link…")
+            } else if account.isRecoveringPassword {
+                PasswordRecoveryView()
+            } else if let message = account.journeyError {
                 ContentUnavailableView {
                     Label("Couldn’t open your journey", systemImage: "externaldrive.badge.exclamationmark")
                 } description: {
@@ -73,11 +78,20 @@ struct RootView: View {
                 Button("OK") { blocker.errorMessage = nil }
             } message: { Text(blocker.errorMessage ?? "") }
         .onOpenURL { url in
+            if AccountRecovery.isCallback(url) {
+                Task { await account.openPasswordRecovery(url, store: store) }
+                return
+            }
             guard let invite = GroupInvite(url: url), store.state.activeRun == nil,
                   store.state.profile != nil else { return }
             store.finishedRunID = nil
             store.lobbyInvite = invite
         }
+        .alert("Couldn’t open reset link", isPresented: Binding(
+            get: { account.recoveryLinkError != nil },
+            set: { if !$0 { account.recoveryLinkError = nil } })) {
+                Button("OK") { account.recoveryLinkError = nil }
+            } message: { Text(account.recoveryLinkError ?? "") }
         .task {
             #if DEBUG
             await store.seedDemoIfRequested()

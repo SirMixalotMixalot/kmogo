@@ -8,11 +8,14 @@ struct AccountView: View {
     @State private var password = ""
     @State private var name = ""
     @State private var importJourney = false
+    @State private var showForgotPassword = false
+    @State private var showSignupConfirmation = false
 
     private var canSubmit: Bool {
         !email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && !password.isEmpty
-            && (!creatingAccount || (!name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && password.count >= 6))
+            && (!creatingAccount || (!name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                    && password.count >= AccountRecovery.minimumPasswordLength))
     }
 
     var body: some View {
@@ -35,6 +38,18 @@ struct AccountView: View {
                 } footer: {
                     Text("Your journey is saved on this device for this account.")
                 }
+            } else if showSignupConfirmation {
+                Section {
+                    Label("Check your email", systemImage: "envelope.badge")
+                        .font(.headline)
+                    Text("Confirm \(email.trimmingCharacters(in: .whitespacesAndNewlines)), then return to Roam to sign in.")
+                    Button("Back to sign in") {
+                        password = ""
+                        account.notice = nil
+                        creatingAccount = false
+                        showSignupConfirmation = false
+                    }
+                }
             } else {
                 Section {
                     Picker("Account", selection: $creatingAccount) {
@@ -42,10 +57,12 @@ struct AccountView: View {
                         Text("Create account").tag(true)
                     }
                     .pickerStyle(.segmented)
+                    .disabled(account.isBusy)
                     .onChange(of: creatingAccount) { _, _ in
                         password = ""
                         account.errorMessage = nil
                         account.notice = nil
+                        showSignupConfirmation = false
                     }
                     if creatingAccount {
                         TextField("Display name", text: $name)
@@ -57,9 +74,23 @@ struct AccountView: View {
                         .textContentType(.username)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
-                    SecureField("Password", text: $password)
-                        .textContentType(creatingAccount ? .newPassword : .password)
+                    if creatingAccount {
+                        SecureField("Password", text: $password)
+                            .textContentType(.newPassword)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .submitLabel(.go)
+                            .onSubmit { if canSubmit { Task { await submit() } } }
+                    } else {
+                        SecureField("Password", text: $password)
+                            .textContentType(.password)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .submitLabel(.go)
+                            .onSubmit { if canSubmit { Task { await submit() } } }
+                    }
                 }
+                .disabled(account.isBusy)
                 if store.state.profile != nil {
                     Section {
                         Toggle("Import this device’s guest journey", isOn: $importJourney)
@@ -72,6 +103,14 @@ struct AccountView: View {
                         Task { await submit() }
                     }
                     .disabled(!canSubmit || account.isBusy || store.state.activeRun != nil)
+                    if !creatingAccount {
+                        Button("Forgot password?") {
+                            account.errorMessage = nil
+                            account.notice = nil
+                            showForgotPassword = true
+                        }
+                        .disabled(account.isBusy || store.state.activeRun != nil)
+                    }
                 } footer: {
                     if creatingAccount {
                         Text("Use at least 6 characters for your password. Confirm your email before signing in.")
@@ -88,17 +127,24 @@ struct AccountView: View {
         .navigationBarTitleDisplayMode(.inline)
         .refreshable { await account.refresh(store: store) }
         .onAppear { name = store.state.profile?.name ?? "" }
+        .onDisappear { password = "" }
+        .sheet(isPresented: $showForgotPassword) {
+            ForgotPasswordView(initialEmail: email)
+        }
     }
 
     private func submit() async {
         let address = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard canSubmit, !account.isBusy, store.state.activeRun == nil else { return }
         if creatingAccount {
-            await account.signUp(email: address, password: password, name: name,
-                                 importJourney: importJourney, store: store)
+            let succeeded = await account.signUp(email: address, password: password, name: name,
+                                                 importJourney: importJourney, store: store)
+            if succeeded, account.session == nil { showSignupConfirmation = true }
         } else {
             await account.signIn(email: address, password: password, importJourney: importJourney, store: store)
         }
-        password = ""
+        // Keep the credential intact until the successful form is removed so Password AutoFill
+        // can offer to save it. Failed requests also retain the suggested password for a retry.
     }
 }
 

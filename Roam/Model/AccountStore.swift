@@ -10,7 +10,11 @@ final class AccountStore {
     private(set) var friends: [RoamFriend] = []
     private(set) var isRestoring = true
     private(set) var isBusy = false
+    private(set) var isOpeningRecoveryLink = false
+    private(set) var isRecoveringPassword = false
+    private(set) var passwordUpdated = false
     private(set) var journeyError: String?
+    var recoveryLinkError: String?
     var errorMessage: String?
     var notice: String?
 
@@ -28,9 +32,13 @@ final class AccountStore {
         guard !observing else { return }
         observing = true
         defer { observing = false }
-        for await (_, currentSession) in client.auth.authStateChanges {
+        for await (event, currentSession) in client.auth.authStateChanges {
             guard !Task.isCancelled else { return }
             do {
+                if event == .passwordRecovery, currentSession != nil {
+                    isRecoveringPassword = true
+                    passwordUpdated = false
+                }
                 try apply(currentSession, store: store)
                 if currentSession != nil { await refresh(store: store) }
             } catch {
@@ -60,6 +68,10 @@ final class AccountStore {
             lastSnapshot = nil
         }
         session = nextSession
+        if nextSession == nil {
+            isRecoveringPassword = false
+            passwordUpdated = false
+        }
         journeyError = nil
         isRestoring = false
     }
@@ -71,7 +83,8 @@ final class AccountStore {
         }
     }
 
-    func signIn(email: String, password: String, importJourney: Bool, store: AppStore) async {
+    @discardableResult
+    func signIn(email: String, password: String, importJourney: Bool, store: AppStore) async -> Bool {
         await perform {
             importGuestProgress = importJourney
             let result = try await client.auth.signIn(email: email, password: password)
@@ -80,7 +93,8 @@ final class AccountStore {
         }
     }
 
-    func signUp(email: String, password: String, name: String, importJourney: Bool, store: AppStore) async {
+    @discardableResult
+    func signUp(email: String, password: String, name: String, importJourney: Bool, store: AppStore) async -> Bool {
         await perform {
             importGuestProgress = importJourney
             let result = try await client.auth.signUp(
@@ -101,6 +115,57 @@ final class AccountStore {
             try await client.auth.signOut(scope: .local)
             try apply(nil, store: store)
         }
+    }
+
+    @discardableResult
+    func requestPasswordReset(email: String) async -> Bool {
+        await perform {
+            let address = email.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !address.isEmpty else { throw AccountError.emailRequired }
+            try await client.auth.resetPasswordForEmail(address, redirectTo: AccountRecovery.redirectURL)
+            notice = "If an account exists for this email, we sent a reset link. Open it on this iPhone to choose a new password."
+        }
+    }
+
+    func openPasswordRecovery(_ url: URL, store: AppStore) async {
+        guard AccountRecovery.isCallback(url), !isOpeningRecoveryLink else { return }
+        isOpeningRecoveryLink = true
+        recoveryLinkError = nil
+        errorMessage = nil
+        notice = nil
+        defer { isOpeningRecoveryLink = false }
+        do {
+            // The SDK exchanges the code with the verifier saved when this device requested the email.
+            // A callback URL alone never authorizes a password change.
+            let recoveredSession = try await client.auth.session(from: url)
+            try apply(recoveredSession, store: store)
+            passwordUpdated = false
+            isRecoveringPassword = true
+        } catch {
+            // SDK errors may include the callback URL; don't display codes or tokens in the UI.
+            recoveryLinkError = "This reset link could not be verified. It may have expired, already been used, or been requested on another device. Request a new link in Roam and open it on the same iPhone."
+        }
+    }
+
+    @discardableResult
+    func updateRecoveredPassword(_ password: String, confirmation: String) async -> Bool {
+        await perform {
+            guard isRecoveringPassword, session != nil, !passwordUpdated else {
+                throw AccountError.recoveryRequired
+            }
+            guard password.count >= AccountRecovery.minimumPasswordLength else {
+                throw AccountError.passwordTooShort
+            }
+            guard password == confirmation else { throw AccountError.passwordMismatch }
+            try await client.auth.update(user: UserAttributes(password: password))
+            passwordUpdated = true
+        }
+    }
+
+    func finishPasswordRecovery() {
+        guard passwordUpdated else { return }
+        isRecoveringPassword = false
+        passwordUpdated = false
     }
 
     func refresh(store: AppStore) async {
@@ -206,17 +271,20 @@ final class AccountStore {
         }
     }
 
-    private func perform(_ action: () async throws -> Void) async {
-        guard !isBusy else { return }
+    @discardableResult
+    private func perform(_ action: () async throws -> Void) async -> Bool {
+        guard !isBusy else { return false }
         isBusy = true
         errorMessage = nil
         notice = nil
         defer { isBusy = false }
         do {
             try await action()
+            return true
         } catch {
             importGuestProgress = false
             errorMessage = error.localizedDescription
+            return false
         }
     }
 
@@ -227,12 +295,17 @@ final class AccountStore {
 
     private enum AccountError: LocalizedError {
         case profileUnavailable, invalidInvite, requestChanged
+        case emailRequired, recoveryRequired, passwordTooShort, passwordMismatch
 
         var errorDescription: String? {
             switch self {
             case .profileUnavailable: "Your profile could not be loaded. Pull down to try again."
             case .invalidInvite: "Paste the full friend code shared by your friend."
             case .requestChanged: "This friend request has changed. Pull down to refresh."
+            case .emailRequired: "Enter your account’s email address."
+            case .recoveryRequired: "Open a valid password reset link before choosing a new password."
+            case .passwordTooShort: "Use at least \(AccountRecovery.minimumPasswordLength) characters for your password."
+            case .passwordMismatch: "Your passwords don’t match."
             }
         }
     }
