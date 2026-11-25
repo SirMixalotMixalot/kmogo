@@ -153,7 +153,8 @@ final class PasswordRecoveryTests: XCTestCase {
     private static let user: [String: Any] = [
         "id": "00000000-0000-4000-8000-000000000123", "aud": "authenticated",
         "role": "authenticated", "email": "runner@example.com", "app_metadata": [:],
-        "user_metadata": [:], "created_at": "2026-01-01T00:00:00Z"
+        "user_metadata": [:], "created_at": "2026-01-01T00:00:00Z",
+        "updated_at": "2026-01-01T00:00:00Z"
     ]
 }
 
