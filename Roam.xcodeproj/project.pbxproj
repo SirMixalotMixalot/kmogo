@@ -204,6 +204,9 @@
 				TargetAttributes = {
 					A00000000000000000000008 = {
 						CreatedOnToolsVersion = 16.0;
+						SystemCapabilities = {
+							com.apple.AssociatedDomains = { enabled = 1; };
+						};
 					};
 					A00000000000000000000009 = {
 						CreatedOnToolsVersion = 16.0;
@@ -445,7 +448,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
-				CODE_SIGN_ENTITLEMENTS = Config/Roam.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Config/RoamMonitor.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = X767SL92S7;
@@ -466,7 +469,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
-				CODE_SIGN_ENTITLEMENTS = Config/Roam.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Config/RoamMonitor.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = X767SL92S7;
