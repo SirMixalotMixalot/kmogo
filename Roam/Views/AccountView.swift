@@ -61,6 +61,7 @@ struct AccountView: View {
                     .onChange(of: creatingAccount) { _, _ in
                         password = ""
                         account.errorMessage = nil
+                        account.authenticationAlert = nil
                         account.notice = nil
                         showSignupConfirmation = false
                     }
@@ -131,6 +132,11 @@ struct AccountView: View {
         .sheet(isPresented: $showForgotPassword) {
             ForgotPasswordView(initialEmail: email)
         }
+        .alert(account.authenticationAlert?.title ?? "Account", isPresented: Binding(
+            get: { account.authenticationAlert != nil },
+            set: { if !$0 { account.authenticationAlert = nil } })) {
+                Button("OK", role: .cancel) { account.authenticationAlert = nil }
+            } message: { Text(account.authenticationAlert?.message ?? "") }
     }
 
     private func submit() async {

@@ -17,6 +17,7 @@ final class AccountStore {
     var recoveryLinkError: String?
     var errorMessage: String?
     var notice: String?
+    var authenticationAlert: AccountAlert?
 
     @ObservationIgnored private let client: SupabaseClient
     @ObservationIgnored private var observing = false
@@ -85,7 +86,7 @@ final class AccountStore {
 
     @discardableResult
     func signIn(email: String, password: String, importJourney: Bool, store: AppStore) async -> Bool {
-        await perform {
+        await perform(failureTitle: "Couldn’t sign in") {
             importGuestProgress = importJourney
             let result = try await client.auth.signIn(email: email, password: password)
             try apply(result, store: store)
@@ -95,7 +96,7 @@ final class AccountStore {
 
     @discardableResult
     func signUp(email: String, password: String, name: String, importJourney: Bool, store: AppStore) async -> Bool {
-        await perform {
+        await perform(failureTitle: "Couldn’t create account") {
             importGuestProgress = importJourney
             let result = try await client.auth.signUp(
                 email: email, password: password, data: ["display_name": .string(cleanName(name))]
@@ -213,7 +214,7 @@ final class AccountStore {
                 lastSnapshot = nil
             }
 
-            let updatedFriends: [RoamFriend] = try await client.rpc("roam_list_friends").execute().value
+            let updatedFriends: [RoamFriend] = try await client.rpc("roam_list_friend_profiles").execute().value
             guard session?.user.id == user.id else { return }
             friends = updatedFriends.sorted {
                 $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending
@@ -250,40 +251,99 @@ final class AccountStore {
         }
     }
 
-    func accept(_ friend: RoamFriend, store: AppStore) async {
+    @discardableResult
+    func setUsername(_ value: String, store: AppStore) async -> Bool {
+        await perform {
+            guard session != nil else { throw AccountError.signInRequired }
+            let username = RoamUsername.normalized(value)
+            guard RoamUsername.isValid(username) else { throw AccountError.invalidUsername }
+            do {
+                try await client.rpc("roam_set_username", params: ["p_username": username]).execute()
+            } catch let error as PostgrestError where error.code == "23505" {
+                throw AccountError.usernameTaken
+            }
+            await refresh(store: store)
+        }
+    }
+
+    func searchProfiles(_ query: String) async throws -> [RoamPublicProfile] {
+        guard session != nil else { throw AccountError.signInRequired }
+        let query = RoamUsername.normalized(query)
+        guard RoamUsername.canSearch(query) else { return [] }
+        return try await client.rpc("roam_search_profiles", params: ["p_query": query]).execute().value
+    }
+
+    func publicProfile(username: String) async throws -> RoamPublicProfile? {
+        guard session != nil else { throw AccountError.signInRequired }
+        let username = RoamUsername.normalized(username)
+        guard RoamUsername.isValid(username) else { return nil }
+        let profiles: [RoamPublicProfile] = try await client.rpc(
+            "roam_get_profile", params: ["p_username": username]
+        ).execute().value
+        return profiles.first
+    }
+
+    @discardableResult
+    func requestFriend(username: String, store: AppStore) async -> Bool {
+        await perform {
+            guard session != nil else { throw AccountError.signInRequired }
+            let username = RoamUsername.normalized(username)
+            guard RoamUsername.isValid(username) else { throw AccountError.invalidUsername }
+            try await client.rpc("roam_request_friend_by_username", params: ["p_username": username]).execute()
+            await refresh(store: store)
+            notice = "Friend request sent."
+        }
+    }
+
+    @discardableResult
+    func accept(_ friend: RoamFriend, store: AppStore) async -> Bool {
+        await acceptFriendship(friend.id, store: store)
+    }
+
+    @discardableResult
+    func acceptFriendship(_ id: UUID, store: AppStore) async -> Bool {
         await perform {
             let accepted: Bool = try await client.rpc(
-                "roam_accept_friend", params: ["p_friendship_id": friend.id.uuidString]
+                "roam_accept_friend", params: ["p_friendship_id": id.uuidString]
             ).execute().value
             guard accepted else { throw AccountError.requestChanged }
             await refresh(store: store)
         }
     }
 
-    func remove(_ friend: RoamFriend, store: AppStore) async {
+    @discardableResult
+    func remove(_ friend: RoamFriend, store: AppStore) async -> Bool {
+        await removeFriendship(friend.id, store: store)
+    }
+
+    @discardableResult
+    func removeFriendship(_ id: UUID, store: AppStore) async -> Bool {
         await perform {
             let removed: Bool = try await client.rpc(
-                "roam_remove_friend", params: ["p_friendship_id": friend.id.uuidString]
+                "roam_remove_friend", params: ["p_friendship_id": id.uuidString]
             ).execute().value
             guard removed else { throw AccountError.requestChanged }
-            friends.removeAll { $0.id == friend.id }
+            friends.removeAll { $0.id == id }
             await refresh(store: store)
         }
     }
 
     @discardableResult
-    private func perform(_ action: () async throws -> Void) async -> Bool {
+    private func perform(failureTitle: String? = nil, _ action: () async throws -> Void) async -> Bool {
         guard !isBusy else { return false }
         isBusy = true
         errorMessage = nil
         notice = nil
+        if failureTitle != nil { authenticationAlert = nil }
         defer { isBusy = false }
         do {
             try await action()
             return true
         } catch {
             importGuestProgress = false
-            errorMessage = error.localizedDescription
+            let message = AccountMessages.message(for: error)
+            errorMessage = message
+            if let failureTitle { authenticationAlert = AccountAlert(title: failureTitle, message: message) }
             return false
         }
     }
@@ -296,6 +356,7 @@ final class AccountStore {
     private enum AccountError: LocalizedError {
         case profileUnavailable, invalidInvite, requestChanged
         case emailRequired, recoveryRequired, passwordTooShort, passwordMismatch
+        case signInRequired, invalidUsername, usernameTaken
 
         var errorDescription: String? {
             switch self {
@@ -306,6 +367,9 @@ final class AccountStore {
             case .recoveryRequired: "Open a valid password reset link before choosing a new password."
             case .passwordTooShort: "Use at least \(AccountRecovery.minimumPasswordLength) characters for your password."
             case .passwordMismatch: "Your passwords don’t match."
+            case .signInRequired: "Sign in to find and add friends."
+            case .invalidUsername: "Use 3–20 lowercase letters, numbers, or underscores. Start with a letter or number."
+            case .usernameTaken: "That username is already taken. Try another one."
             }
         }
     }
