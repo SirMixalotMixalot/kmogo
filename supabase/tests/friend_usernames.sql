@@ -33,13 +33,14 @@ begin
     if has_function_privilege('anon', 'public.roam_search_profiles(text)', 'execute')
        or has_function_privilege('anon', 'public.roam_get_profile(text)', 'execute')
        or has_function_privilege('anon', 'public.roam_set_username(text)', 'execute')
-       or has_function_privilege('anon', 'public.roam_request_friend_by_username(text)', 'execute') then
+       or has_function_privilege('anon', 'public.roam_request_friend_by_username(text)', 'execute')
+       or has_function_privilege('anon', 'public.roam_list_friend_profiles()', 'execute') then
         raise exception 'Anonymous profile access is enabled';
     end if;
     execute 'set local role authenticated';
     perform set_config('request.jwt.claim.sub', alice::text, true);
     perform public.roam_set_username(' @ZZT27_ALICE ');
-    if (select p.username from public.roam_profiles p where p.user_id = alice) <> 'zzt27_alice' then
+    if (select p.username from public.roam_profiles p where p.user_id = alice) is distinct from 'zzt27_alice' then
         raise exception 'Username was not normalized';
     end if;
     denied := false;
@@ -68,7 +69,7 @@ begin
         raise exception 'Search accepted a wildcard query';
     end if;
     select * into row_data from public.roam_get_profile('zzt27_bob');
-    if row_data.status <> 'none' or row_data.study_seconds is not null then
+    if row_data.status is distinct from 'none' or row_data.study_seconds is not null then
         raise exception 'Non-friend could see progress';
     end if;
     if to_jsonb(row_data) ? 'email' or to_jsonb(row_data) ? 'invite_code' then
@@ -82,18 +83,19 @@ begin
     perform public.roam_request_friend_by_username('zzt27_bob');
     select * into row_data from public.roam_get_profile('zzt27_bob');
     link_id := row_data.friendship_id;
-    if row_data.status <> 'outgoing' or link_id is null or row_data.study_seconds is not null then
+    if row_data.status is distinct from 'outgoing' or link_id is null or row_data.study_seconds is not null then
         raise exception 'Outgoing request state or privacy is wrong';
     end if;
     if public.roam_accept_friend(link_id) then raise exception 'Requester accepted their own request'; end if;
     perform set_config('request.jwt.claim.sub', bob::text, true);
     select * into row_data from public.roam_get_profile('zzt27_alice');
-    if row_data.status <> 'incoming' then raise exception 'Incoming request state is wrong'; end if;
+    if row_data.status is distinct from 'incoming' then raise exception 'Incoming request state is wrong'; end if;
     if not public.roam_accept_friend(link_id) then raise exception 'Recipient could not accept'; end if;
 
     perform set_config('request.jwt.claim.sub', alice::text, true);
     select * into row_data from public.roam_get_profile('zzt27_bob');
-    if row_data.status <> 'accepted' or row_data.study_seconds <> 3600 or row_data.virtual_km <> 12 then
+    if row_data.status is distinct from 'accepted' or row_data.study_seconds is distinct from 3600
+       or row_data.virtual_km is distinct from 12::double precision then
         raise exception 'Accepted friend cannot see opted-in progress';
     end if;
     if not exists (select 1 from public.roam_list_friend_profiles() p
@@ -108,7 +110,7 @@ begin
     perform public.roam_set_username('zzt27_bob_new');
     perform set_config('request.jwt.claim.sub', alice::text, true);
     select * into row_data from public.roam_get_profile('zzt27_bob_new');
-    if row_data.status <> 'accepted' or row_data.study_seconds is not null then
+    if row_data.status is distinct from 'accepted' or row_data.study_seconds is not null then
         raise exception 'Disabling sharing or changing a username broke privacy/friendship';
     end if;
     if exists (select 1 from public.roam_get_profile('zzt27_bob')) then
@@ -116,7 +118,7 @@ begin
     end if;
     if not public.roam_remove_friend(link_id) then raise exception 'Friend removal failed'; end if;
     select * into row_data from public.roam_get_profile('zzt27_bob_new');
-    if row_data.status <> 'none' then raise exception 'Removed friendship is still visible'; end if;
+    if row_data.status is distinct from 'none' then raise exception 'Removed friendship is still visible'; end if;
     execute 'reset role';
 end;
 $$;
