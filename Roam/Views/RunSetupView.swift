@@ -20,6 +20,7 @@ enum ExploreTarget: Equatable {
 
 struct RunSetupView: View {
     @Environment(AppStore.self) private var store
+    @Environment(AccountStore.self) private var account
     @State private var preset: RunPreset = .fiveK
     @State private var customMinutes: Double = 60
     @State private var mode: SetupMode = ProcessInfo.processInfo.arguments.contains("-explore") ? .explore : .journey
@@ -37,6 +38,7 @@ struct RunSetupView: View {
     @State private var loadingRoute = false
     @State private var camera: MapCameraPosition = .automatic
     @State private var bigMap = false
+    @State private var showFriends = true
     @State private var showDestinations = false
     @State private var showGroup = false
     @State private var pendingInvite: GroupInvite?
@@ -45,6 +47,7 @@ struct RunSetupView: View {
     private var leg: Leg? { store.state.currentLeg }
     private var effectiveMode: SetupMode { leg == nil ? .explore : mode }
     private var here: Coordinate { store.currentCoordinate }
+    private var visibleFriends: [RoamFriend] { account.friends.filter { $0.coordinate != nil } }
 
     private var planKey: String {
         let legKey = leg.map { "\($0.id)-\(Int($0.progressKm * 1000))" } ?? "none"
@@ -162,6 +165,14 @@ struct RunSetupView: View {
                 if effectiveMode == .explore, case .point(let c) = target {
                     Marker("Run here", systemImage: "mappin", coordinate: c.cl).tint(Theme.orange)
                 }
+                if showFriends {
+                    ForEach(visibleFriends) { friend in
+                        if let coordinate = friend.coordinate {
+                            Marker("\(friend.displayName) · virtual", systemImage: "person.fill", coordinate: coordinate.cl)
+                                .tint(.blue)
+                        }
+                    }
+                }
                 Annotation("You", coordinate: here.cl) { RunnerDot(size: 28) }
             }
             .mapStyle(.standard(elevation: .realistic))
@@ -170,6 +181,7 @@ struct RunSetupView: View {
                 MapScaleView()
                 MapPitchToggle()
             }
+            .onAppear { fitCamera() }
             .onTapGesture { screenPoint in
                 guard let c = proxy.convert(screenPoint, from: .local) else { return }
                 mode = .explore
@@ -195,6 +207,22 @@ struct RunSetupView: View {
                 mapButton("scope") { fitCamera() }
             }
             .padding(10)
+        }
+        .overlay(alignment: .bottomLeading) {
+            if !visibleFriends.isEmpty {
+                Button {
+                    showFriends.toggle()
+                } label: {
+                    Label(showFriends ? "Hide friends" : "Show friends", systemImage: "person.2.fill")
+                        .font(.caption.bold())
+                        .foregroundStyle(showFriends ? Color.blue : Color.primary)
+                        .frame(height: 40)
+                        .padding(.horizontal, 12)
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
+                }
+                .buttonStyle(.plain)
+                .padding(10)
+            }
         }
     }
 

@@ -65,6 +65,67 @@ final class PasswordRecoveryTests: XCTestCase {
         XCTAssertFalse(account.passwordUpdated)
     }
 
+    func testIncorrectCredentialsProduceAnActionableSignInAlert() async {
+        RecoveryHTTPStub.state.respond(to: "POST /auth/v1/token", status: 400,
+            json: ["error_code": "invalid_credentials", "msg": "Invalid login credentials"])
+        let signedIn = await account.signIn(email: "runner@example.com", password: "wrong-password",
+                                            importJourney: false, store: store)
+        XCTAssertFalse(signedIn)
+        XCTAssertNil(account.session)
+        XCTAssertEqual(account.authenticationAlert?.title, "Couldn’t sign in")
+        XCTAssertTrue(account.authenticationAlert?.message.contains("email or password is incorrect") == true)
+        XCTAssertTrue(account.authenticationAlert?.message.contains("Forgot password") == true)
+        XCTAssertFalse(account.isBusy)
+    }
+
+    func testUnconfirmedEmailExplainsHowToFinishSignIn() async {
+        RecoveryHTTPStub.state.respond(to: "POST /auth/v1/token", status: 400,
+            json: ["error_code": "email_not_confirmed", "msg": "Email not confirmed"])
+        let signedIn = await account.signIn(email: "runner@example.com", password: "strong-password",
+                                            importJourney: false, store: store)
+        XCTAssertFalse(signedIn)
+        XCTAssertTrue(account.authenticationAlert?.message.hasPrefix("Confirm your email") == true)
+    }
+
+    func testInvalidSignupProducesItsOwnAlert() async {
+        RecoveryHTTPStub.state.respond(to: "POST /auth/v1/signup", status: 422,
+            json: ["error_code": "weak_password", "msg": "Password is too weak"])
+        let created = await account.signUp(email: "runner@example.com", password: "weak", name: "Runner",
+                                           importJourney: false, store: store)
+        XCTAssertFalse(created)
+        XCTAssertEqual(account.authenticationAlert?.title, "Couldn’t create account")
+        XCTAssertTrue(account.authenticationAlert?.message.contains("stronger password") == true)
+    }
+
+    func testProfileSearchRequiresSignInAndSendsNormalizedUsernames() async throws {
+        do {
+            _ = try await account.searchProfiles("pat")
+            XCTFail("Unsigned searches must fail")
+        } catch { XCTAssertTrue(RecoveryHTTPStub.state.requests.isEmpty) }
+        try await recover()
+        RecoveryHTTPStub.state.respond(to: "POST /rest/v1/rpc/roam_search_profiles", status: 200, json: [[
+            "user_id": "00000000-0000-4000-8000-000000000456", "display_name": "Patrick",
+            "username": "patrick", "status": "none", "friendship_id": NSNull()
+        ]])
+        let profiles = try await account.searchProfiles(" @PAT ")
+        XCTAssertEqual(profiles.first?.username, "patrick")
+        let request = try XCTUnwrap(RecoveryHTTPStub.state.requests.last)
+        XCTAssertEqual(try body(of: request)["p_query"] as? String, "pat")
+        let count = RecoveryHTTPStub.state.requests.count
+        let invalid = try await account.searchProfiles("p%")
+        XCTAssertTrue(invalid.isEmpty)
+        XCTAssertEqual(RecoveryHTTPStub.state.requests.count, count)
+    }
+
+    func testTakenUsernameHasAFriendlyError() async throws {
+        try await recover()
+        RecoveryHTTPStub.state.respond(to: "POST /rest/v1/rpc/roam_set_username", status: 409,
+            json: ["code": "23505", "details": NSNull(), "hint": NSNull(), "message": "duplicate key"])
+        let saved = await account.setUsername("patrick", store: store)
+        XCTAssertFalse(saved)
+        XCTAssertEqual(account.errorMessage, "That username is already taken. Try another one.")
+    }
+
     func testExpiredLinkDoesNotAuthorizeRecoveryOrExposeTheCode() async {
         RecoveryHTTPStub.state.respond(to: "POST /auth/v1/token", status: 400,
                                        json: ["msg": "Expired code: private-test-code"])
@@ -186,7 +247,7 @@ private final class RecoveryHTTPStub: URLProtocol, @unchecked Sendable {
         private var received: [URLRequest] = []
         var requests: [URLRequest] { lock.withLock { received } }
         func reset() { lock.withLock { responses = [:]; received = [] } }
-        func respond(to endpoint: String, status: Int, json: [String: Any]) {
+        func respond(to endpoint: String, status: Int, json: Any) {
             let data = try! JSONSerialization.data(withJSONObject: json)
             lock.withLock { responses[endpoint] = (status, data) }
         }

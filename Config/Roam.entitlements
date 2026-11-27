@@ -7,6 +7,7 @@
     <key>com.apple.developer.associated-domains</key>
     <array>
         <string>webcredentials:kmogo.me</string>
+        <string>applinks:kmogo.me</string>
     </array>
 </dict>
 </plist>

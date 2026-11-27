@@ -27,6 +27,7 @@ enum Theme {
 
 struct RootView: View {
     @State private var blocker = AppBlocker.shared
+    @State private var pendingProfile: ProfileLink?
     @Environment(AppStore.self) private var store
     @Environment(AccountStore.self) private var account
     @Environment(\.scenePhase) private var scenePhase
@@ -36,6 +37,17 @@ struct RootView: View {
             get: { !account.isOpeningRecoveryLink && !account.isRecoveringPassword
                 && (store.state.activeRun != nil || store.finishedRunID != nil || store.lobbyInvite != nil) },
             set: { if !$0 { store.finishedRunID = nil; store.lobbyInvite = nil } }
+        )
+    }
+
+    private var profilePresentation: Binding<ProfileLink?> {
+        Binding(
+            get: {
+                guard !showFlow.wrappedValue, !account.isOpeningRecoveryLink, !account.isRecoveringPassword,
+                      !account.isRestoring || RoamApp.isTesting else { return nil }
+                return pendingProfile
+            },
+            set: { pendingProfile = $0 }
         )
     }
 
@@ -65,6 +77,16 @@ struct RootView: View {
         .fullScreenCover(isPresented: showFlow) {
             RunFlowView().environment(store).tint(Theme.orange)
         }
+        .sheet(item: profilePresentation) { link in
+            NavigationStack {
+                FriendProfileView(username: link.username)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Close") { pendingProfile = nil }
+                        }
+                    }
+            }
+        }
         .onChange(of: scenePhase) { _, phase in
             switch phase {
             case .background: store.appDidBackground()
@@ -78,6 +100,10 @@ struct RootView: View {
                 Button("OK") { blocker.errorMessage = nil }
             } message: { Text(blocker.errorMessage ?? "") }
         .onOpenURL { url in
+            if let profile = ProfileLink(url: url) {
+                pendingProfile = profile
+                return
+            }
             if AccountRecovery.isCallback(url) {
                 Task { await account.openPasswordRecovery(url, store: store) }
                 return
@@ -86,6 +112,9 @@ struct RootView: View {
                   store.state.profile != nil else { return }
             store.finishedRunID = nil
             store.lobbyInvite = invite
+        }
+        .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
+            if let url = activity.webpageURL, let profile = ProfileLink(url: url) { pendingProfile = profile }
         }
         .alert("Couldn’t open reset link", isPresented: Binding(
             get: { account.recoveryLinkError != nil },
