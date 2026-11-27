@@ -15,6 +15,12 @@ The profile only shows progress after the friendship is accepted and the other
 person enables sharing. Search and profile APIs never return emails or invite codes.
 The previous friend-code APIs remain available to older app builds.
 
+The run setup map shows accepted friends' shared virtual positions as blue markers
+before a run starts, in both journey and explore modes. Hide friends / Show friends
+controls visibility. The camera initially fits your position and planned route;
+friends elsewhere remain available by panning or zooming. Markers reuse the cached
+friend list and its existing foreground refresh, without adding server requests.
+
 ## Profile links
 
 Share profile creates `https://kmogo.me/u/<username>`. Universal Links route this
@@ -50,3 +56,9 @@ Device checks: verify the incorrect-password alert; choose a username; search a
 second account; send and accept a request; toggle sharing; share a profile URL;
 open it both signed in and signed out; and verify browser fallback, invalid names,
 and existing recovery/group links.
+
+On the run setup map, check friend markers and the visibility button in journey
+and explore modes. Confirm pending requests and friends with sharing disabled
+have no marker, distant friends do not widen the initial route camera, and normal
+map taps still choose an explore destination. These map interactions need a signed
+device or simulator UI check; the CI build only verifies compilation.
